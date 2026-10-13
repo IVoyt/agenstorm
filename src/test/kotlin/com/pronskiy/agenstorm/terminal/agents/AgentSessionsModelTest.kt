@@ -3,6 +3,7 @@ package com.pronskiy.agenstorm.terminal.agents
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.pronskiy.agenstorm.core.AgenstormSettings
+import com.pronskiy.agenstorm.core.ProjectAttention
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.FileTime
@@ -28,6 +29,7 @@ class AgentSessionsModelTest : BasePlatformTestCase() {
         try {
             AgenstormSettings.getInstance().loadState(AgenstormSettings.State())
             model.refresh()
+            ProjectAttention.getInstance().clear()
             model.claudeHome = ClaudeLiveSessions::home
             @OptIn(kotlin.io.path.ExperimentalPathApi::class)
             home.deleteRecursively()
@@ -88,6 +90,32 @@ class AgentSessionsModelTest : BasePlatformTestCase() {
         waitFor("idle never showed") { ownSessions().singleOrNull()?.session?.status == "idle" }
 
         assertFalse("it finished while nothing was read", ownSessions().single().finished)
+    }
+
+    fun testAWaitingSessionMarksItsProjectUntilTheBadgeOrTheSidebarGoesOff() {
+        val settings = AgenstormSettings.getInstance().state
+        val attention = ProjectAttention.getInstance()
+        settings.agentSessionsEnabled = true
+        writeSession("waiting")
+
+        waitFor("the project was never marked") { attention.waiting.value[project.basePath] == listOf("x2-test") }
+
+        settings.agentSessionsTabBadge = false
+        waitFor("the badge setting went off, the mark stayed") { attention.waiting.value.isEmpty() }
+
+        settings.agentSessionsTabBadge = true
+        waitFor("the mark never came back") { attention.waiting.value.isNotEmpty() }
+        settings.agentSessionsEnabled = false
+        waitFor("the sidebar went off, the mark stayed") { attention.waiting.value.isEmpty() }
+    }
+
+    fun testOnlyWaitingSessionsMarkAProject() {
+        val busy = SessionRow(LiveSession(1, "a", "/w/app", "a", "busy", null, null, null), SessionPlace.Elsewhere, finished = true)
+        val waiting = SessionRow(LiveSession(2, "b", "/w/app", null, "waiting", null, null, null), SessionPlace.Elsewhere, finished = false)
+
+        val marks = AgentSessionsModel.waitingByProject(listOf(ProjectGroup("app", "/w/app", listOf(busy, waiting)), ProjectGroup("other", "/w/other")))
+
+        assertEquals("named as their rows are", mapOf("/w/app" to listOf("b"), "/w/other" to emptyList()), marks)
     }
 
     fun testOffReadsNothing() {

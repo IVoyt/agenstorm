@@ -156,6 +156,8 @@ class AgenstormSettings : PersistentStateComponent<AgenstormSettings.State> {
         var agentSessionsHistory: Int = 10,
         /** Epic X, X6.2: tell when a session needs input or finishes while its tab is not on screen (decision 107: on). */
         var agentSessionsNotify: Boolean = true,
+        /** Epic X, X6.6: a dot on a project tab while an agent in that project waits for input (decision 107: on). */
+        var agentSessionsTabBadge: Boolean = true,
         /** Epic G: comma-separated command names the shim is installed under; each one shadows the real command inside IDE terminals. */
         var terminalOpenCommandNames: String = "open",
         /** Epic G: let the IDE claim files it treats as binary; off means a PDF or a PNG goes to macOS, not to the editor. */

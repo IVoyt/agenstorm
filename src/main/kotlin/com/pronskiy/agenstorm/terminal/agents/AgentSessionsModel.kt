@@ -11,6 +11,7 @@ import com.intellij.openapi.project.ProjectManager
 import com.intellij.openapi.util.Disposer
 import com.pronskiy.agenstorm.core.AgenstormSettings
 import com.pronskiy.agenstorm.core.AgenstormSettingsListener
+import com.pronskiy.agenstorm.core.ProjectAttention
 import com.pronskiy.agenstorm.terminal.tmux.BackgroundTerminals
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -34,10 +35,12 @@ import java.nio.file.Path
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * Steps X1.2, X2.4, X3.2 and X6.1. The one model every window's Agents sidebar draws (decision 102): a group per open
- * project, in the same order everywhere, with the Claude Code sessions running in it, where each can be shown and
+ * Steps X1.2, X2.4, X3.2, X6.1, X6.2 and X6.5. The one model every window's Agents sidebar draws (decision 102): a
+ * group per open project, in the same order everywhere, with the Claude Code sessions running in it, where each can be
+ * shown and
  * whether it finished while its tab was not on screen ([AttentionTracker]), and its newest past sessions
- * ([AgenstormSettings.State.agentSessionsHistory] of them). While the setting
+ * ([AgenstormSettings.State.agentSessionsHistory] of them). After each read it tells what happened off screen
+ * ([notifier]) and which projects have an agent waiting ([ProjectAttention], for the project tabs). While the setting
  * is on it reads `~/.claude/sessions` every [POLL], and at once when a project opens ([AgentsStartupActivity]) or closes
  * ([AgentsProjectClosed]) and when a Terminal tab is added ([AgentsTabsListener]); with the setting off it reads nothing
  * there. The settings page turns the sidebar on and off in every window through [AgentsToolWindowFactory.syncAvailability].
@@ -122,6 +125,7 @@ class AgentSessionsModel(private val scope: CoroutineScope) : Disposable {
         if (!on) {
             // The next read after the setting comes back on is a first read: nothing seen meanwhile is news.
             attention.reset()
+            ProjectAttention.getInstance().clear()
             groupsFlow.update { ProjectGroup.sorted(projects.filter { stillOpen(it.basePath, closing) }) }
             return@withLock
         }
@@ -154,6 +158,7 @@ class AgentSessionsModel(private val scope: CoroutineScope) : Disposable {
                 )
             })
         }
+        ProjectAttention.getInstance().set(if (AgenstormSettings.getInstance().state.agentSessionsTabBadge) waitingByProject(groupsFlow.value) else emptyMap())
         val stillListed = groupsFlow.value.mapTo(HashSet()) { it.basePath }
         news.filter { it.basePath in stillListed }.takeIf { it.isNotEmpty() }?.let(newsFlow::tryEmit)
     }
@@ -198,6 +203,12 @@ class AgentSessionsModel(private val scope: CoroutineScope) : Disposable {
 
         /** Past sessions change slowly; listing every transcript of every project each [POLL] would not. */
         private val HISTORY_POLL = 15.seconds
+
+        /** Step X6.5, pure: each project's base path → the sessions waiting for input there, named as their rows are. */
+        fun waitingByProject(groups: List<ProjectGroup>): Map<String, List<String>> =
+            groups.associate { group -> group.basePath to group.sessions.filter { it.session.status == WAITING }.map { SessionRowText.title(it.session) } }
+
+        private const val WAITING = "waiting"
 
         fun getInstance(): AgentSessionsModel = service()
     }
