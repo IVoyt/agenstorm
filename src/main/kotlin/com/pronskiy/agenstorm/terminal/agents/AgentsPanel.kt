@@ -47,9 +47,11 @@ import javax.swing.tree.DefaultTreeModel
 import javax.swing.tree.TreePath
 
 /**
- * Steps X1.2, X1.4, X2.5, X2.6, X3.2 and X5.2. One frame's view of the Agents sidebar: a group per open project, in the
- * model's order, with this frame's own project in bold — the one thing that differs between windows (decision 102) —
- * and under each the Claude Code sessions running there, then its newest past ones in grey. A click on a running
+ * Steps X1.2, X1.4, X2.5, X2.6, X3.2, X5.2, X6.3 and X6.4. One frame's view of the Agents sidebar: a group per open
+ * project, in the model's order, with this frame's own project in bold — the one thing that differs between windows
+ * (decision 102) — and under each the Claude Code sessions running there, then its newest past ones in grey; or, grouped
+ * by status ([StatusGrouping]), a section per status with every project's sessions in it, each naming its project. The
+ * *View Options* ([AgentsViewOptions]) choose between the two and whether past sessions show. A click on a running
  * session brings up where it runs, on a past one resumes it in a new tab (decision 103). The
  * selected row, the folded groups and the scroll position are the shared [AgentsSidebarState]'s: changed here only from
  * the window in front ([isFront]), and followed here from every other window.
@@ -103,11 +105,11 @@ class AgentsPanel(
         tree.addKeyListener(object : KeyAdapter() {
             override fun keyPressed(e: KeyEvent) {
                 val path = tree.selectionPath ?: return
-                val group = (path.lastPathComponent as? DefaultMutableTreeNode)?.userObject as? ProjectGroup
+                val foldable = foldKeyOf((path.lastPathComponent as? DefaultMutableTreeNode)?.userObject)
                 when {
                     e.keyCode == KeyEvent.VK_ENTER -> click(path)
-                    group != null && e.keyCode == KeyEvent.VK_LEFT -> fold(group, folded = true)
-                    group != null && e.keyCode == KeyEvent.VK_RIGHT -> fold(group, folded = false)
+                    foldable != null && e.keyCode == KeyEvent.VK_LEFT -> fold(foldable, folded = true)
+                    foldable != null && e.keyCode == KeyEvent.VK_RIGHT -> fold(foldable, folded = false)
                     else -> return
                 }
                 e.consume()
@@ -134,7 +136,13 @@ class AgentsPanel(
     /** Rows that only changed in place are updated where they are; a new set of rows is rebuilt. */
     private fun show(layout: AgentsSidebarState.Layout) = restoring(true) {
         val past = layout.show == AgentsSidebarState.Shown.ALL
-        val items = groups.flatMap { group -> listOf<Any>(group) + if (group.basePath in layout.collapsed) emptyList() else group.sessions + if (past) group.history else emptyList() }
+        val items = when (layout.groupBy) {
+            AgentsSidebarState.Grouping.PROJECT ->
+                groups.flatMap { group -> listOf<Any>(group) + if (group.basePath in layout.collapsed) emptyList() else group.sessions + if (past) group.history else emptyList() }
+            AgentsSidebarState.Grouping.STATUS -> StatusGrouping.sections(groups, includePast = past).flatMap { section ->
+                listOf<Any>(section) + if (StatusGrouping.foldKey(section.section) in layout.collapsed) emptyList() else section.entries
+            }
+        }
         val nodes = rowNodes()
         if (items.map(::keyOf) == nodes.map { keyOf(it.userObject) }) {
             nodes.zip(items).forEach { (node, item) ->
@@ -154,9 +162,12 @@ class AgentsPanel(
     }
 
     /** Folds or unfolds [group] in every window: a click on a project is the user's, whichever window had the focus. */
-    internal fun fold(group: ProjectGroup, folded: Boolean) {
+    internal fun fold(group: ProjectGroup, folded: Boolean) = fold(group.basePath, folded)
+
+    /** Folds or unfolds the project or status section kept as [key] in the shared `collapsed`, in every window. */
+    private fun fold(key: String, folded: Boolean) {
         state.update { layout ->
-            layout.apply { if (folded) { if (group.basePath !in collapsed) collapsed.add(group.basePath) } else collapsed.remove(group.basePath) }
+            layout.apply { if (folded) { if (key !in collapsed) collapsed.add(key) } else collapsed.remove(key) }
         }
         show(state.layout.value)
     }
@@ -171,11 +182,12 @@ class AgentsPanel(
 
     internal fun click(path: TreePath) {
         val node = path.lastPathComponent as? DefaultMutableTreeNode ?: return
-        val group = groupAbove(node) ?: return
         when (val item = node.userObject) {
-            is ProjectGroup -> fold(item, folded = item.basePath !in state.layout.value.collapsed)
-            is SessionRow -> onClick(ClickPlan.of(item, group.basePath), item.session.sessionId)
-            is PastSession -> onClick(ClickPlan.of(item, group.basePath), item.sessionId)
+            is ProjectGroup, is StatusGrouping.StatusGroup -> foldKeyOf(item)?.let { fold(it, folded = it !in state.layout.value.collapsed) }
+            is SessionRow -> groupAbove(node)?.let { onClick(ClickPlan.of(item, it.basePath), item.session.sessionId) }
+            is PastSession -> groupAbove(node)?.let { onClick(ClickPlan.of(item, it.basePath), item.sessionId) }
+            is StatusGrouping.Entry.Live -> onClick(ClickPlan.of(item.row, item.basePath), item.row.session.sessionId)
+            is StatusGrouping.Entry.Past -> onClick(ClickPlan.of(item.past, item.basePath), item.past.sessionId)
         }
     }
 
@@ -183,6 +195,8 @@ class AgentsPanel(
         sink[SESSION_ID] = when (val item = (tree.selectionPath?.lastPathComponent as? DefaultMutableTreeNode)?.userObject) {
             is SessionRow -> item.session.sessionId
             is PastSession -> item.sessionId
+            is StatusGrouping.Entry.Live -> item.row.session.sessionId
+            is StatusGrouping.Entry.Past -> item.past.sessionId
             else -> null
         }
     }
@@ -219,20 +233,39 @@ class AgentsPanel(
                     icon = slots(if (item.basePath in state.layout.value.collapsed) AllIcons.General.ChevronRight else AllIcons.General.ChevronDown, AllIcons.Nodes.Folder)
                     append(item.name, if (isOwn(item)) SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES else SimpleTextAttributes.REGULAR_ATTRIBUTES)
                 }
-                is SessionRow -> {
-                    icon = slots(EmptyIcon.ICON_16, iconOf(item))
-                    append(SessionRowText.title(item.session), if (item.place == SessionPlace.Elsewhere) SimpleTextAttributes.GRAYED_ATTRIBUTES else SimpleTextAttributes.REGULAR_ATTRIBUTES)
-                    SessionRowText.ago(item.session.updatedAt, now())?.let { append("  $it", SimpleTextAttributes.GRAYED_SMALL_ATTRIBUTES) }
-                    SessionRowText.hint(item)?.let { append("  $it", SimpleTextAttributes.GRAYED_ITALIC_ATTRIBUTES) }
-                    toolTipText = SessionRowText.tooltip(item)
+                is SessionRow -> session(item, entry = null)
+                is PastSession -> past(item, entry = null)
+                is StatusGrouping.StatusGroup -> {
+                    icon = slots(if (StatusGrouping.foldKey(item.section) in state.layout.value.collapsed) AllIcons.General.ChevronRight else AllIcons.General.ChevronDown, iconOf(item.section))
+                    append(sectionName(item.section))
+                    append("  ${item.entries.size}", SimpleTextAttributes.GRAYED_SMALL_ATTRIBUTES)
                 }
-                is PastSession -> {
-                    icon = slots(EmptyIcon.ICON_16, AllIcons.Vcs.History)
-                    append(item.title, SimpleTextAttributes.GRAYED_ATTRIBUTES)
-                    SessionRowText.ago(item.lastActivity, now())?.let { append("  $it", SimpleTextAttributes.GRAYED_SMALL_ATTRIBUTES) }
-                    toolTipText = AgenstormBundle.message("agents.click.past")
-                }
+                is StatusGrouping.Entry.Live -> session(item.row, item)
+                is StatusGrouping.Entry.Past -> past(item.past, item)
             }
+        }
+
+        /** A running session's row; under a status section ([entry] given) it names its project too. */
+        private fun session(row: SessionRow, entry: StatusGrouping.Entry?) {
+            icon = slots(EmptyIcon.ICON_16, iconOf(row))
+            append(SessionRowText.title(row.session), if (row.place == SessionPlace.Elsewhere) SimpleTextAttributes.GRAYED_ATTRIBUTES else SimpleTextAttributes.REGULAR_ATTRIBUTES)
+            entry?.let(::appendProject)
+            SessionRowText.ago(row.session.updatedAt, now())?.let { append("  $it", SimpleTextAttributes.GRAYED_SMALL_ATTRIBUTES) }
+            SessionRowText.hint(row)?.let { append("  $it", SimpleTextAttributes.GRAYED_ITALIC_ATTRIBUTES) }
+            toolTipText = SessionRowText.tooltip(row)
+        }
+
+        private fun past(past: PastSession, entry: StatusGrouping.Entry?) {
+            icon = slots(EmptyIcon.ICON_16, AllIcons.Vcs.History)
+            append(past.title, SimpleTextAttributes.GRAYED_ATTRIBUTES)
+            entry?.let(::appendProject)
+            SessionRowText.ago(past.lastActivity, now())?.let { append("  $it", SimpleTextAttributes.GRAYED_SMALL_ATTRIBUTES) }
+            toolTipText = AgenstormBundle.message("agents.click.past")
+        }
+
+        /** The project a row under a status section belongs to: grey, bold for this window's own. */
+        private fun appendProject(entry: StatusGrouping.Entry) {
+            append("  ${entry.projectName}", if (entry.basePath == project.basePath) OWN_PROJECT else SimpleTextAttributes.GRAYED_ATTRIBUTES)
         }
     }
 
@@ -293,9 +326,38 @@ class AgentsPanel(
 
         private fun keyOf(item: Any?): String? = when (item) {
             is ProjectGroup -> "group:${item.basePath}"
+            is StatusGrouping.StatusGroup -> StatusGrouping.foldKey(item.section)
             is SessionRow -> "session:${item.session.sessionId}"
+            is StatusGrouping.Entry.Live -> "session:${item.row.session.sessionId}"
             is PastSession -> "past:${item.sessionId}"
+            is StatusGrouping.Entry.Past -> "past:${item.past.sessionId}"
             else -> null
         }
+
+        /** What a foldable row is kept as in the shared `collapsed`: a project's base path, a section's [StatusGrouping.foldKey]. */
+        private fun foldKeyOf(item: Any?): String? = when (item) {
+            is ProjectGroup -> item.basePath
+            is StatusGrouping.StatusGroup -> StatusGrouping.foldKey(item.section)
+            else -> null
+        }
+
+        /** A section header's mark: the one its rows carry. */
+        internal fun iconOf(section: StatusGrouping.Section): Icon = when (section) {
+            StatusGrouping.Section.NEEDS_INPUT -> WAITING
+            StatusGrouping.Section.FINISHED -> FINISHED
+            StatusGrouping.Section.RUNNING -> AnimatedIcon.Default.INSTANCE
+            StatusGrouping.Section.IDLE -> IDLE
+            StatusGrouping.Section.PAST -> AllIcons.Vcs.History
+        }
+
+        private fun sectionName(section: StatusGrouping.Section): String = when (section) {
+            StatusGrouping.Section.NEEDS_INPUT -> AgenstormBundle.message("agents.section.needsInput")
+            StatusGrouping.Section.FINISHED -> AgenstormBundle.message("agents.section.finished")
+            StatusGrouping.Section.RUNNING -> AgenstormBundle.message("agents.section.running")
+            StatusGrouping.Section.IDLE -> AgenstormBundle.message("agents.section.idle")
+            StatusGrouping.Section.PAST -> AgenstormBundle.message("agents.section.past")
+        }
+
+        private val OWN_PROJECT = SimpleTextAttributes(SimpleTextAttributes.STYLE_BOLD, SimpleTextAttributes.GRAYED_ATTRIBUTES.fgColor)
     }
 }
