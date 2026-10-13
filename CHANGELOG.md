@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Maximized terminal: a click on the file tab above it gives the editor back again, instead of blinking and leaving the terminal maximized.
+
 ## [1.13.0] - 2026-10-09
 
 ### Added

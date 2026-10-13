@@ -28,10 +28,12 @@ import javax.swing.SwingUtilities
  * Once a tab click has given the editor back, the row works the other way too: a click on the tab that was
  * already the active one asks for the terminal again, as the toggle's first press does, and a click on any other
  * tab only switches to it (J1.10). "Already" is decided when the mouse goes down, because the press is what
- * selects a tab. Only while the terminal is hidden: one shown at its normal size is being used beside the editor,
- * and a click on the active tab is how the caret gets back to the file. And only after a tab click — whoever
- * leaves the terminal by the shortcut keeps a tab row that just switches tabs. That a tab click did is kept in
- * the project's workspace, so it outlasts a restart.
+ * selects a tab. So is where the terminal stands: the press also moves the keyboard into the editor, and J1.12
+ * gives the editor back on that before the click arrives — read at the click, the terminal looked hidden, the
+ * active tab asked for it again, and the click blinked. Only while the terminal is hidden: one shown at its
+ * normal size is being used beside the editor, and a click on the active tab is how the caret gets back to the
+ * file. And only after a tab click — whoever leaves the terminal by the shortcut keeps a tab row that just
+ * switches tabs. That a tab click did is kept in the project's workspace, so it outlasts a restart.
  *
  * A double click on an editor tab is the platform's Hide All Tool Windows, and its first click on the active tab
  * has already asked for the terminal. So the second press of a double click takes that back — un-maximized and
@@ -58,6 +60,9 @@ class EditorTabClickWatcher(private val project: Project) : Disposable {
 
     /** The tab label the last single press landed on, when its tab was the active one at that moment. */
     private var pressedActiveTab: Component? = null
+
+    /** The terminal as it stood when the last press landed, before the tab saw it. */
+    private var pressedState: TerminalWindowState? = null
 
     /** A click on the active tab asked for the terminal. Kept until the next press, which may take it back. */
     private class ClickOpen(val at: Long) {
@@ -111,6 +116,8 @@ class EditorTabClickWatcher(private val project: Project) : Disposable {
         if (open != null && isSecondClickOf(open, e)) takeBack(open, terminal)
         // Read before the press selects its tab. The second press of a double click is not asked.
         pressedActiveTab = e.component.takeIf { e.clickCount == 1 && EditorTabRow.isActiveEditorTab(project, it) }
+        // And before it moves the keyboard into the editor, which J1.12 answers by giving the editor back.
+        pressedState = TerminalMaximizeToggleAction.stateOf(project, terminal)
     }
 
     private fun isSecondClickOf(open: ClickOpen, e: MouseEvent): Boolean =
@@ -127,14 +134,19 @@ class EditorTabClickWatcher(private val project: Project) : Disposable {
 
     private fun clicked(e: MouseEvent, state: TerminalWindowState, terminal: ToolWindow) {
         val wasActive = pressedActiveTab != null && pressedActiveTab === e.component
+        val atPress = pressedState
         pressedActiveTab = null
+        pressedState = null
         if (!EditorTabRow.isEditorTabClick(project, e.component)) return
-        when (tabClick(state, armed, wasActive)) {
+        when (tabClick(atPress, state, armed, wasActive)) {
             TabClick.EDITOR -> {
                 armed = true
-                // After the click has selected its tab, so the editor that gets the caret is the one clicked.
+                // After the click has selected its tab, so the editor that gets the caret is the one clicked —
+                // unless J1.12 gave the editor back already, on the keyboard the press gave it.
                 ApplicationManager.getApplication().invokeLater({
-                    TerminalMaximizeToggleAction.maximizeEditor(project, terminal)
+                    if (TerminalMaximizeToggleAction.stateOf(project, terminal).isTerminalMaximized) {
+                        TerminalMaximizeToggleAction.maximizeEditor(project, terminal)
+                    }
                 }, ModalityState.nonModal(), project.disposed)
             }
             TabClick.TERMINAL -> {
@@ -152,6 +164,7 @@ class EditorTabClickWatcher(private val project: Project) : Disposable {
 
     private fun stop() {
         pressedActiveTab = null
+        pressedState = null
         clickOpen = null
         val registration = listening ?: return
         listening = null
@@ -161,6 +174,7 @@ class EditorTabClickWatcher(private val project: Project) : Disposable {
     override fun dispose() {
         listening = null
         pressedActiveTab = null
+        pressedState = null
         clickOpen = null
     }
 
@@ -177,5 +191,12 @@ class EditorTabClickWatcher(private val project: Project) : Disposable {
             armed && wasActive && terminal.docked && !terminal.visible -> TabClick.TERMINAL
             else -> TabClick.NONE
         }
+
+        /**
+         * Pure: the same, for a click judged by the terminal as it was when the mouse went down, [atPress]; [atClick]
+         * stands in when the press was not seen.
+         */
+        fun tabClick(atPress: TerminalWindowState?, atClick: TerminalWindowState, armed: Boolean, wasActive: Boolean): TabClick =
+            tabClick(atPress ?: atClick, armed, wasActive)
     }
 }

@@ -41,4 +41,24 @@ class EditorTabClickWatcherTest : TestCase() {
     fun testTheActiveTabDoesNothingForAFloatingTerminal() {
         assertEquals(TabClick.NONE, EditorTabClickWatcher.tabClick(floatingHidden, armed = true, wasActive = true))
     }
+
+    /**
+     * The press on the active tab moves the keyboard into the editor, and J1.12 answers that by hiding the terminal
+     * and arming the row before the click arrives. The click began over a maximized terminal, so it is still a click
+     * for the editor, not one for the terminal back.
+     */
+    fun testAClickIsJudgedByTheTerminalAsItWasWhenTheMouseWentDown() {
+        assertEquals(
+            TabClick.EDITOR,
+            EditorTabClickWatcher.tabClick(atPress = maximized, atClick = hidden, armed = true, wasActive = true),
+        )
+    }
+
+    /** A click whose press the listener did not see — it began listening in between — goes by the terminal now. */
+    fun testAClickWithoutItsPressGoesByTheTerminalNow() {
+        assertEquals(
+            TabClick.TERMINAL,
+            EditorTabClickWatcher.tabClick(atPress = null, atClick = hidden, armed = true, wasActive = true),
+        )
+    }
 }
