@@ -10,8 +10,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Step X1.3. The one layout every window's Agents sidebar shows (decision 102): open or not, how wide, on which side,
- * which row is selected, which groups are folded and how far it is scrolled. Recorded from the window in front, applied
+ * Steps X1.3 and X6.3. The one layout every window's Agents sidebar shows (decision 102): open or not, how wide, on
+ * which side, which row is selected, which groups are folded, how far it is scrolled, and the view options. Recorded
+ * from the window in front, applied
  * to all the others at once (decision 105), and kept across restarts so a project opened later takes it too.
  */
 @Service(Service.Level.APP)
@@ -21,7 +22,8 @@ class AgentsSidebarState : PersistentStateComponent<AgentsSidebarState.Layout> {
     /**
      * [width] 0 and [anchor] "" mean not recorded yet; [split] puts it in the lower part of its side, where it starts
      * (X5.1); [selected] is a row's id, "" for none; [collapsed] holds the base paths of folded groups, so a project that
-     * joins starts unfolded.
+     * joins starts unfolded. [show] and [groupBy] are the *View Options* (X6.3); a layout saved before them loads as
+     * today's view, every session by project.
      */
     data class Layout(
         var visible: Boolean = false,
@@ -31,7 +33,15 @@ class AgentsSidebarState : PersistentStateComponent<AgentsSidebarState.Layout> {
         var selected: String = "",
         var collapsed: MutableList<String> = mutableListOf(),
         var scroll: Int = 0,
+        var show: Shown = Shown.ALL,
+        var groupBy: Grouping = Grouping.PROJECT,
     )
+
+    /** Step X6.3. Running and past sessions, or running ones only. */
+    enum class Shown { ALL, ACTIVE }
+
+    /** Steps X6.3 and X6.4. Sessions under their project, or under their status across projects. */
+    enum class Grouping { PROJECT, STATUS }
 
     private val flow = MutableStateFlow(Layout())
 

@@ -2,6 +2,7 @@ package com.pronskiy.agenstorm.terminal.agents
 
 import com.intellij.openapi.components.State
 import com.intellij.openapi.components.Storage
+import com.intellij.openapi.util.JDOMUtil
 import com.intellij.util.xmlb.SkipDefaultsSerializationFilter
 import com.intellij.util.xmlb.XmlSerializer
 import org.junit.Assert.assertEquals
@@ -9,7 +10,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Step X1.3: the shared layout survives a restart and changes only through copies. */
+/** Steps X1.3 and X6.3: the shared layout, view options included, survives a restart and changes only through copies. */
 class AgentsSidebarStateTest {
 
     @Test
@@ -26,6 +27,28 @@ class AgentsSidebarStateTest {
         val element = XmlSerializer.serialize(layout, SkipDefaultsSerializationFilter())
 
         assertEquals(layout, XmlSerializer.deserialize(element, AgentsSidebarState.Layout::class.java))
+    }
+
+    @Test
+    fun theViewOptionsRoundTripAndStartAsBefore() {
+        val layout = AgentsSidebarState.Layout(show = AgentsSidebarState.Shown.ACTIVE, groupBy = AgentsSidebarState.Grouping.STATUS)
+
+        val element = XmlSerializer.serialize(layout, SkipDefaultsSerializationFilter())
+
+        assertEquals(layout, XmlSerializer.deserialize(element, AgentsSidebarState.Layout::class.java))
+        assertEquals(AgentsSidebarState.Shown.ALL, AgentsSidebarState.Layout().show)
+        assertEquals(AgentsSidebarState.Grouping.PROJECT, AgentsSidebarState.Layout().groupBy)
+    }
+
+    @Test
+    fun aLayoutSavedBeforeTheViewOptionsLoadsWithTodaysView() {
+        val saved = JDOMUtil.load("""<Layout><option name="visible" value="true" /><option name="width" value="320" /></Layout>""")
+
+        val layout = XmlSerializer.deserialize(saved, AgentsSidebarState.Layout::class.java)
+
+        assertEquals(320, layout.width)
+        assertEquals(AgentsSidebarState.Shown.ALL, layout.show)
+        assertEquals(AgentsSidebarState.Grouping.PROJECT, layout.groupBy)
     }
 
     @Test

@@ -47,6 +47,16 @@ class AgentsPanelRowsTest : BasePlatformTestCase() {
     /** The rows under the project shown at [groupRow], down to the next project. */
     private fun items(groupRow: Int): List<Any> = panel.shownRows().drop(groupRow + 1).takeWhile { it !is ProjectGroup }
 
+    fun testActiveHidesThePastSessionsAndKeepsEveryProject() {
+        panel.render(groups(row("a"), history = listOf(past("p1"), past("p2"))))
+        assertEquals("app, a, p1, p2, other", 5, panel.tree.rowCount)
+
+        AgentsSidebarState.getInstance().update { it.apply { show = AgentsSidebarState.Shown.ACTIVE } }
+        panel.restore(AgentsSidebarState.getInstance().layout.value)
+
+        assertEquals(listOf("app", "a", "other"), panel.shownRows().map { (it as? ProjectGroup)?.name ?: (it as SessionRow).session.sessionId })
+    }
+
     fun testSessionsAreRowsUnderTheirProject() {
         panel.render(groups(row("a"), row("b")))
 

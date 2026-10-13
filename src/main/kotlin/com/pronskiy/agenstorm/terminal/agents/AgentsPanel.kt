@@ -133,7 +133,8 @@ class AgentsPanel(
 
     /** Rows that only changed in place are updated where they are; a new set of rows is rebuilt. */
     private fun show(layout: AgentsSidebarState.Layout) = restoring(true) {
-        val items = groups.flatMap { group -> listOf<Any>(group) + if (group.basePath in layout.collapsed) emptyList() else group.sessions + group.history }
+        val past = layout.show == AgentsSidebarState.Shown.ALL
+        val items = groups.flatMap { group -> listOf<Any>(group) + if (group.basePath in layout.collapsed) emptyList() else group.sessions + if (past) group.history else emptyList() }
         val nodes = rowNodes()
         if (items.map(::keyOf) == nodes.map { keyOf(it.userObject) }) {
             nodes.zip(items).forEach { (node, item) ->

@@ -12,7 +12,8 @@ import com.pronskiy.agenstorm.core.AgenstormSettings
 
 /**
  * Step X1.2. The Agents tool window, one per frame (decision 102), available only while the setting is on (decision
- * 104); its panel draws the app-level [AgentSessionsModel], its layout follows [AgentsSidebarSync].
+ * 104); its panel draws the app-level [AgentSessionsModel], its layout follows [AgentsSidebarSync], and its title bar
+ * carries the [AgentsViewOptions] (X6.3).
  */
 class AgentsToolWindowFactory : ToolWindowFactory, DumbAware {
 
@@ -21,6 +22,7 @@ class AgentsToolWindowFactory : ToolWindowFactory, DumbAware {
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
         val panel = AgentsPanel(project, toolWindow.disposable)
         toolWindow.contentManager.addContent(ContentFactory.getInstance().createContent(panel, null, false))
+        toolWindow.setTitleActions(listOf(AgentsViewOptions()))
         AgentSessionsModel.getInstance().refresh()
     }
 
