@@ -424,6 +424,15 @@ class AgenstormConfigurable : BoundConfigurable(AgenstormBundle.message("setting
                     .applyToComponent { name = "agents.notify" }
                     .comment(AgenstormBundle.message("settings.agents.notify.comment"))
             }
+            // X6.6: on (decision 107); the model clears the marks at once when it goes off, hence the topic.
+            row {
+                checkBox(AgenstormBundle.message("settings.agents.tabBadge"))
+                    .bindSelected({ AgenstormSettings.getInstance().state.agentSessionsTabBadge }, { AgenstormSettings.getInstance().state.agentSessionsTabBadge = it })
+                    .enabledIf(agents.component.selected)
+                    .onApply { AgenstormSettingsListener.fire() }
+                    .applyToComponent { name = "agents.tabBadge" }
+                    .comment(AgenstormBundle.message("settings.agents.tabBadge.comment"))
+            }
         }
         featureGroup("settings.group.notifications", "settings.notifications.autoDismiss.enabled", AgenstormSettings.State::notificationsAutoDismissEnabled) {
             row(AgenstormBundle.message("settings.notifications.autoDismiss.seconds")) {

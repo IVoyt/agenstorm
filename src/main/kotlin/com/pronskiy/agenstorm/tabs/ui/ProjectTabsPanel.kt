@@ -2,13 +2,20 @@ package com.pronskiy.agenstorm.tabs.ui
 
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.EDT
+import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.ui.components.JBLabel
 import com.intellij.util.ui.JBUI
+import com.pronskiy.agenstorm.core.AgenstormAppScope
 import com.pronskiy.agenstorm.core.AgenstormBundle
+import com.pronskiy.agenstorm.core.ProjectAttention
 import com.pronskiy.agenstorm.tabs.ProjectTab
 import com.pronskiy.agenstorm.tabs.ProjectTabsModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.awt.Component
 import java.awt.Dimension
 import java.awt.Point
@@ -19,8 +26,9 @@ import javax.swing.JPanel
 import javax.swing.SwingUtilities
 
 /**
- * Steps E1.3/E2.1/P1/P2.7. The strip itself: one [ProjectTabLabel] per tab in [ProjectTabsModel] order — open
- * projects and offloaded bookmarks alike — separators between them and a "+" button. Each frame has its own panel;
+ * Steps E1.3/E2.1/P1/P2.7/X6.6. The strip itself: one [ProjectTabLabel] per tab in [ProjectTabsModel] order — open
+ * projects and offloaded bookmarks alike — separators between them and a "+" button; a tab whose project has an
+ * agent waiting for input carries a dot ([ProjectAttention]). Each frame has its own panel;
  * [ownerProject] (the frame's project) is drawn as the active tab, so no global "current project" bookkeeping
  * is needed. Subscribes to the model while it is showing ([attach] from `addNotify`, [detach] from
  * `removeNotify`). What clicks do is decided by the callbacks (wired by `ProjectTabActions`); the panel renders.
@@ -146,7 +154,17 @@ class ProjectTabsPanel(private val model: ProjectTabsModel = ProjectTabsModel.ge
         val disposable = Disposer.newDisposable("Agenstorm project tabs panel")
         subscription = disposable
         model.addListener({ tabs -> showTabs(tabs) }, disposable)
+        // X6.6: the projects where an agent waits for input, as the Agents model last read them.
+        val waiting = ApplicationManager.getApplication().service<AgenstormAppScope>().scope.launch(Dispatchers.EDT) {
+            ProjectAttention.getInstance().waiting.collect(::showWaiting)
+        }
+        Disposer.register(disposable) { waiting.cancel() }
         showTabs(model.tabs())
+    }
+
+    /** Step X6.6. Gives each tab the sessions waiting in its project; a tab whose list did not change is left alone. */
+    private fun showWaiting(waiting: Map<String, List<String>>) {
+        for (label in tabLabels()) label.waiting = waiting[label.tab.key].orEmpty()
     }
 
     fun detach() {
@@ -169,6 +187,7 @@ class ProjectTabsPanel(private val model: ProjectTabsModel = ProjectTabsModel.ge
                 onContextMenu = { component, point -> onContextMenu(tab, component, point) },
             )
             label.addDragListener(dragHandler)
+            label.waiting = ProjectAttention.getInstance().waiting.value[tab.key].orEmpty()
             add(label)
         }
         repeat((tabs.size - 1).coerceAtLeast(0)) { separators += separator().also(::add) }

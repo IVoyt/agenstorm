@@ -5,6 +5,7 @@ import com.intellij.ide.RecentProjectsManagerBase
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.IconLoader
+import com.intellij.openapi.util.text.HtmlBuilder
 import com.intellij.ui.ColorUtil
 import com.intellij.ui.JBColor
 import com.intellij.ui.PopupHandler
@@ -101,9 +102,29 @@ class ProjectTabLabel(
             repaint()
         }
 
+    /**
+     * Step X6.6. The sessions waiting for input in this tab's project, from `core/ProjectAttention` (decision 107): a
+     * dot on the icon and their names in the tooltip while there are any. An offloaded tab never has one.
+     */
+    var waiting: List<String> = emptyList()
+        set(value) {
+            val names = if (isOffloaded) emptyList() else value
+            if (field == names) return
+            field = names
+            nameLabel.icon = icon()
+            toolTipText = tooltip()
+            revalidate()
+            repaint()
+        }
+
+    internal val hasBadge: Boolean get() = waiting.isNotEmpty()
+
     private var hovered = false
     private val showIcon = showIcon
-    private val nameLabel = JBLabel(tab.name, if (showIcon) icon() else null, JBLabel.LEFT)
+
+    /** The recent-projects icon, looked up once. */
+    private val plainIcon: Icon? = if (showIcon) projectIcon(tab.key, tab.name) else null
+    private val nameLabel = JBLabel(tab.name, icon(), JBLabel.LEFT)
 
     /** Owns [hovered]; `internal` so tests can drive it — the hover service needs showing windows. */
     internal val hoverListener = object : HoverListener() {
@@ -114,6 +135,9 @@ class ProjectTabLabel(
 
     /** The text shown on the tab (the project name). */
     val title: String get() = nameLabel.text
+
+    /** The icon in front of the name: the project's, with the waiting badge when there is one. */
+    internal val nameIcon: Icon? get() = nameLabel.icon
     internal val closeLabel = JBLabel(HIDDEN_CLOSE).apply {
         addMouseListener(object : MouseAdapter() {
             override fun mouseEntered(e: MouseEvent) { if (isCloseShown) icon = AllIcons.Actions.CloseHovered }
@@ -187,10 +211,50 @@ class ProjectTabLabel(
     internal fun borderColor(): Color = ColorUtil.withAlpha(NamedColorUtil.getInactiveTextColor(), BORDER_ALPHA)
 
     private fun icon(): Icon? {
-        if (!showIcon) return null
-        val icon = projectIcon(tab.key, tab.name) ?: return null
-        return if (isOffloaded && !isLoading) IconLoader.getTransparentIcon(icon, 0.5f) else icon
+        val icon = plainIcon?.let { if (isOffloaded && !isLoading) IconLoader.getTransparentIcon(it, 0.5f) else it }
+        if (waiting.isEmpty()) return icon
+        return if (icon != null) Badged(icon) else LONE_BADGE
     }
+
+    /**
+     * Step X6.6. The project icon with an orange dot on its top-right corner, ringed with what is behind the tab — its
+     * fill when it has one, the toolbar otherwise — so the dot reads on any icon. Same size as the icon: the tab keeps
+     * its width.
+     */
+    private inner class Badged(private val icon: Icon) : Icon {
+        override fun paintIcon(c: Component?, g: Graphics, x: Int, y: Int) {
+            icon.paintIcon(c, g, x, y)
+            val g2 = g.create() as Graphics2D
+            try {
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+                val ring = JBUI.scale(BADGE_RING)
+                val dot = JBUI.scale(BADGE_DOT)
+                val outer = dot + 2 * ring
+                val left = x + iconWidth - outer + ring
+                val top = y - ring
+                g2.color = behind()
+                g2.fillOval(left, top, outer, outer)
+                fill()?.let { g2.color = it; g2.fillOval(left, top, outer, outer) }
+                g2.color = BADGE_COLOR
+                g2.fillOval(left + ring, top + ring, dot, dot)
+            } finally {
+                g2.dispose()
+            }
+        }
+
+        override fun getIconWidth() = icon.iconWidth
+        override fun getIconHeight() = icon.iconHeight
+    }
+
+    /** The tab's own fill under the badge's ring, as [paintComponent] draws it. */
+    private fun fill(): Color? = when {
+        isSelected -> SELECTED_BACKGROUND
+        hovered -> HOVER_BACKGROUND
+        else -> null
+    }
+
+    /** What the tab is drawn on: the nearest opaque component behind it. */
+    private fun behind(): Color = generateSequence(parent) { it.parent }.firstOrNull { it.isOpaque }?.background ?: UIUtil.getPanelBackground()
 
     private fun tooltip(): String {
         val path = project?.basePath ?: tab.key
@@ -199,7 +263,9 @@ class ProjectTabLabel(
             offloaded != null -> AgenstormBundle.message("tabs.offloaded.tooltip", path, DateFormatUtil.formatBetweenDates(offloaded.sinceMs, System.currentTimeMillis()))
             else -> path
         }
-        return if (isCompact) "${tab.name} — $detail" else detail
+        val text = if (isCompact) "${tab.name} — $detail" else detail
+        if (waiting.isEmpty()) return text
+        return HtmlBuilder().append(text).br().append(AgenstormBundle.message("tabs.waiting.tooltip", waiting.joinToString(", "))).wrapWithHtmlBody().toString()
     }
 
     /** Width the tab wants in the given mode, independent of its current state (the panel plans with both). */
@@ -219,11 +285,7 @@ class ProjectTabLabel(
     override fun getMaximumSize(): Dimension = preferredSize
 
     override fun paintComponent(g: Graphics) {
-        val fill = when {
-            isSelected -> SELECTED_BACKGROUND
-            hovered -> HOVER_BACKGROUND
-            else -> null
-        }
+        val fill = fill()
         if (fill != null || isOffloaded) {
             val g2 = g.create() as Graphics2D
             try {
@@ -260,6 +322,29 @@ class ProjectTabLabel(
         private val HIDDEN_CLOSE: Icon = EmptyIcon.create(AllIcons.Actions.Close)
         private val SELECTED_BACKGROUND = JBColor.namedColor("MainToolbar.Dropdown.pressedBackground", JBUI.CurrentTheme.ActionButton.pressedBackground())
         private val HOVER_BACKGROUND = JBColor.namedColor("MainToolbar.Dropdown.hoverBackground", JBUI.CurrentTheme.ActionButton.hoverBackground())
+
+        /** Step X6.6: the Agents sidebar's *waiting* colour; `tabs/` does not import `terminal/`, so it is repeated here. */
+        private val BADGE_COLOR = JBColor(0xE08855, 0xE08855)
+        private const val BADGE_DOT = 6
+        private const val BADGE_RING = 1
+
+        /** The badge when tab icons are off: the dot alone, in front of the name. */
+        private val LONE_BADGE: Icon = object : Icon {
+            override fun paintIcon(c: Component?, g: Graphics, x: Int, y: Int) {
+                val g2 = g.create() as Graphics2D
+                try {
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+                    g2.color = BADGE_COLOR
+                    val dot = JBUI.scale(BADGE_DOT)
+                    g2.fillOval(x + (iconWidth - dot) / 2, y + (iconHeight - dot) / 2, dot, dot)
+                } finally {
+                    g2.dispose()
+                }
+            }
+
+            override fun getIconWidth() = JBUI.scale(BADGE_DOT + 2)
+            override fun getIconHeight() = JBUI.scale(BADGE_DOT + 2)
+        }
 
         /** The recent-projects icon for the project at [key] (generated initials when it has none); null if that fails. */
         fun projectIcon(key: String, name: String): Icon? = try {

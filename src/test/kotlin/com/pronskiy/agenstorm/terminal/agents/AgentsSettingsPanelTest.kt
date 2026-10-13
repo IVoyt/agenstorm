@@ -63,6 +63,22 @@ class AgentsSettingsPanelTest : BasePlatformTestCase() {
         assertFalse(AgenstormSettings.getInstance().state.agentSessionsNotify)
     }
 
+    fun testTheTabBadgeIsOnOnceTheSidebarIsAndReachesTheModel() {
+        var fired = 0
+        ApplicationManager.getApplication().messageBus.connect(testRootDisposable).subscribe(AgenstormSettingsListener.TOPIC, AgenstormSettingsListener { fired++ })
+        assertTrue(AgenstormSettings.State().agentSessionsTabBadge)
+        assertTrue(named<JBCheckBox>("agents.tabBadge").isSelected)
+        assertFalse(named<JBCheckBox>("agents.tabBadge").isEnabled)
+
+        named<JBCheckBox>("agents.enabled").isSelected = true
+        assertTrue(named<JBCheckBox>("agents.tabBadge").isEnabled)
+        named<JBCheckBox>("agents.tabBadge").isSelected = false
+        configurable.apply()
+
+        assertFalse(AgenstormSettings.getInstance().state.agentSessionsTabBadge)
+        assertEquals("the sidebar's switch and the badge's: the model hears of each at once", 2, fired)
+    }
+
     fun testApplyWritesTheStateAndFiresTheTopicOncePerChange() {
         var fired = 0
         ApplicationManager.getApplication().messageBus.connect(testRootDisposable).subscribe(AgenstormSettingsListener.TOPIC, AgenstormSettingsListener { fired++ })
