@@ -30,9 +30,10 @@ import java.nio.file.Path
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * Steps X1.2, X2.4 and X3.2. The one model every window's Agents sidebar draws (decision 102): a group per open
- * project, in the same order everywhere, with the Claude Code sessions running in it and where each can be shown, and
- * its newest past sessions ([AgenstormSettings.State.agentSessionsHistory] of them). While the setting
+ * Steps X1.2, X2.4, X3.2 and X6.1. The one model every window's Agents sidebar draws (decision 102): a group per open
+ * project, in the same order everywhere, with the Claude Code sessions running in it, where each can be shown and
+ * whether it finished while its tab was not on screen ([AttentionTracker]), and its newest past sessions
+ * ([AgenstormSettings.State.agentSessionsHistory] of them). While the setting
  * is on it reads `~/.claude/sessions` every [POLL], and at once when a project opens ([AgentsStartupActivity]) or closes
  * ([AgentsProjectClosed]) and when a Terminal tab is added ([AgentsTabsListener]); with the setting off it reads nothing
  * there. The settings page turns the sidebar on and off in every window through [AgentsToolWindowFactory.syncAvailability].
@@ -42,7 +43,7 @@ class AgentSessionsModel(private val scope: CoroutineScope) : Disposable {
 
     private val groupsFlow = MutableStateFlow<List<ProjectGroup>>(emptyList())
     private val passes = Mutex()
-    private val finished = FinishedTracker()
+    private val attention = AttentionTracker()
     private val transcripts = ClaudeTranscripts()
 
     /** The past sessions as last read, by base path, and when; read every [HISTORY_POLL] or on [refresh], under [passes]. */
@@ -84,7 +85,7 @@ class AgentSessionsModel(private val scope: CoroutineScope) : Disposable {
 
     /** The user clicked [sessionId]: its dot goes. */
     fun seen(sessionId: String) {
-        finished.seen(sessionId)
+        attention.seen(sessionId)
         groupsFlow.update { current ->
             current.map { group -> group.copy(sessions = group.sessions.map { if (it.session.sessionId == sessionId) it.copy(finished = false) else it }) }
         }
@@ -103,10 +104,12 @@ class AgentSessionsModel(private val scope: CoroutineScope) : Disposable {
 
     private suspend fun pass(closing: Project?, readHistory: Boolean) = passes.withLock {
         val on = enabled()
-        val (projects, probes, front) = withContext(Dispatchers.EDT) {
-            Triple(openGroups(closing), if (on) AgentTabLocator.probes() else emptyList(), AgentsSidebarSync.front()?.basePath)
+        val (projects, probes, screen) = withContext(Dispatchers.EDT) {
+            Triple(openGroups(closing), if (on) AgentTabLocator.probes() else emptyList(), if (on) OnScreen.current() else OnScreen.Screen.nothing())
         }
         if (!on) {
+            // The next read after the setting comes back on is a first read: nothing seen meanwhile is news.
+            attention.reset()
             groupsFlow.update { ProjectGroup.sorted(projects.filter { stillOpen(it.basePath, closing) }) }
             return@withLock
         }
@@ -118,7 +121,7 @@ class AgentSessionsModel(private val scope: CoroutineScope) : Disposable {
             val places = AgentTabLocator.locateAll(live, probes, background, ProcessTree.snapshot())
             val roots = projects.flatMap { group -> listOf(group.basePath to group.basePath, realPath(group.basePath) to group.basePath) }.toMap()
             val grouped = SessionGrouping.group(live, roots)
-            finished.update(grouped.flatMap { (base, sessions) -> sessions.map { it to base } }, front)
+            attention.update(grouped.flatMap { (base, sessions) -> sessions.map { it to base } }, OnScreen.ids(places, screen))
             val running = live.mapTo(HashSet()) { it.sessionId }
             val now = System.currentTimeMillis()
             if (readHistory || now - historyReadAt >= HISTORY_POLL.inWholeMilliseconds || projects.any { it.basePath !in history }) {
@@ -130,7 +133,7 @@ class AgentSessionsModel(private val scope: CoroutineScope) : Disposable {
         // Written as one update against what is open now: a project that closed during the read stays out, and a dot
         // cleared meanwhile stays cleared.
         groupsFlow.update {
-            val done = finished.current()
+            val done = attention.current()
             ProjectGroup.sorted(projects.filter { stillOpen(it.basePath, closing) }.map { group ->
                 group.copy(
                     sessions = rows[group.basePath].orEmpty().map { row -> row.copy(finished = row.session.sessionId in done).withoutClosedTab() },

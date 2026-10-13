@@ -43,6 +43,8 @@ class ClaudeLiveSessionsTest {
         assertEquals("claude-desktop", sessions.getValue(102).entrypoint)
         assertNull("no tmux field", sessions.getValue(102).tmuxSession)
         assertEquals("waiting", sessions.getValue(103).status)
+        assertEquals("input needed", sessions.getValue(103).waitingFor)
+        assertNull("not waiting", sessions.getValue(102).waitingFor)
         assertNull("an empty tmux field is none", sessions.getValue(103).tmuxSession)
         assertNull(sessions.getValue(103).name)
         assertNull(sessions.getValue(103).updatedAt)

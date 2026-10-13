@@ -75,6 +75,21 @@ class AgentSessionsModelTest : BasePlatformTestCase() {
         assertFalse(ownSessions().single().finished)
     }
 
+    fun testWhatHappenedWhileOffIsNoNews() {
+        val settings = AgenstormSettings.getInstance().state
+        settings.agentSessionsEnabled = true
+        writeSession("busy")
+        waitFor("busy never showed") { ownSessions().singleOrNull()?.session?.status == "busy" }
+
+        settings.agentSessionsEnabled = false
+        waitFor("the sessions never went") { ownSessions().isEmpty() }
+        writeSession("idle")
+        settings.agentSessionsEnabled = true
+        waitFor("idle never showed") { ownSessions().singleOrNull()?.session?.status == "idle" }
+
+        assertFalse("it finished while nothing was read", ownSessions().single().finished)
+    }
+
     fun testOffReadsNothing() {
         writeSession("busy")
         model.claudeHome = { fail("read ~/.claude with the setting off"); home }

@@ -12,8 +12,9 @@ import kotlin.math.abs
 
 /**
  * One running Claude Code, as it describes itself in `~/.claude/sessions/<pid>.json` (decision 101). [status] is
- * Claude's own word — `busy`, `idle` and `waiting` seen (X0.2) — shown as it comes; [tmuxSession] is the tmux session it
- * runs in, from the `tmux` field `<session>:@<window>.%<pane>`.
+ * Claude's own word — `busy`, `idle`, `waiting` and `shell` (idle in shell mode) — shown as it comes; [waitingFor] is
+ * what a `waiting` session waits on, in Claude's words (`input needed`, a dialog's own reason; X6.1); [tmuxSession] is
+ * the tmux session it runs in, from the `tmux` field `<session>:@<window>.%<pane>`.
  */
 data class LiveSession(
     val pid: Long,
@@ -25,6 +26,7 @@ data class LiveSession(
     val updatedAt: Long?,
     val entrypoint: String?,
     val startedAt: Long? = null,
+    val waitingFor: String? = null,
 )
 
 /**
@@ -67,6 +69,7 @@ object ClaudeLiveSessions {
             updatedAt = long("updatedAt"),
             entrypoint = string("entrypoint"),
             startedAt = long("startedAt"),
+            waitingFor = string("waitingFor"),
         )
         return session
     }
