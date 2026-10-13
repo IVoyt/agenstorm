@@ -67,7 +67,9 @@ worktree, and can be kept running when a window closes or the IDE quits.
 An Agents sidebar lists the Claude Code sessions of every open project: the running ones, with what
 Claude says each is doing, and the recent ones to pick up again. It looks the same in every window, so
 switching projects changes everything but it. A click brings up the terminal tab a session runs in, in
-its own project's window, or resumes a past one in a new tab. Off by default.
+its own project's window, or resumes a past one in a new tab. It tells you when a session needs your
+input or finishes while you are looking elsewhere, and puts a dot on the project tab where an agent
+waits. Off by default.
 
 ### A terminal that fills the window
 
@@ -552,15 +554,18 @@ Tools → Agenstorm → Window title.
 
 Off by default: **Show the Agents sidebar** under Settings | Tools | Agenstorm | Agents. It adds an
 **Agents** tool window in the lower part of the left side, under the Project view, the same in every
-project window.
+project window. Its notifications and the project-tab dot are on once the sidebar is, each with its own
+checkbox in the same group.
 
 It lists, under each open project, the Claude Code sessions running in it — in any Terminal tab, plain or
 tmux-backed, in any window — each one's mark right under the project's folder icon, and below them the
 project's last ten sessions (**Past sessions per project**,
 0 for none), under the titles Claude gives them. Each running session shows Claude's own status:
 
-- a spinner while Claude works, an orange dot while it waits for you, a grey one when it is idle;
-- a **blue dot** when it finished while its project was not the one in front, until you click it;
+- a spinner while Claude works, an orange dot while it waits for you (a permission, a question), a grey
+  one when it is idle;
+- a **blue dot** when it finished while its tab was not on screen — another tab, another project's window,
+  or the IDE behind another app — until you click it or bring its tab up;
 - *tmux* when it runs in a tmux-backed tab, *background* for a [background terminal](#terminals-that-follow-the-switch),
   *outside the IDE* for one in another terminal app.
 
@@ -570,6 +575,26 @@ in its folder, with `claude --resume <id>` typed in once the shell is ready, so 
 apply. **Copy Session ID** in the context menu copies the id for doing that by hand.
 
 A click on a project folds it, or unfolds it (← and → do the same).
+
+**View Options**, the eye in the sidebar's title bar, choose what it lists and how:
+
+- **Show** *Active Sessions* for the running ones only, or *All Sessions* to add the past ones (the default);
+- **Group By** *Project* (the default) or *Status*: every project's sessions under *Needs input*,
+  *Finished*, *Running*, *Idle* and *Past*, each row naming its project. A row moves as its status changes,
+  and a section folds like a project.
+
+Both are the same in every window and survive a restart.
+
+**Notifications.** When a session starts waiting for your input, or finishes, while its tab is not on
+screen, you hear of it once: a system notification while the IDE is behind another app, a balloon in the
+window in front otherwise, both bringing up the session's tab when clicked. Several at once make one
+notification naming them all. Sessions outside the IDE are not told. **Notify when a session needs input
+or finishes while its tab is not on screen** turns them off; the system notifications also follow the
+IDE's own switch under Settings | Appearance & Behavior | Notifications.
+
+**Project tabs.** While an agent in a project waits for your input, that project's tab carries an orange
+dot on its icon (before its name when tab icons are off), and its tooltip names the sessions; the dot goes
+once they move on. **Mark a project's tab while an agent there waits for input** turns it off.
 
 **The same in every window.** Opening, closing, resizing or moving the sidebar in one window does the same
 in all of them — to the other side, or between the upper and lower part — and so does selecting a row,
@@ -586,8 +611,9 @@ Good to know:
 
 - Claude Code only, for now, and only sessions inside an open project's folder.
 - PhpStorm 2026.3 ships JetBrains' own *Agent Sessions* window (the Air plugin). Its window cannot be
-  changed by another plugin, and a click there resumes a session in Air's own view rather than finding your
-  terminal tab — hence this one, titled *Agents* to tell them apart.
+  changed or reused by another plugin, and a click there resumes a session in Air's own view rather than
+  finding your terminal tab — hence this one, titled *Agents* to tell them apart. The notifications, the
+  view options and grouping by status are borrowed from it.
 - A session in a terminal of the classic engine, or in another terminal app, is listed but has nothing to
   bring up.
 

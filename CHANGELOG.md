@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+### Added
+
+- Agents sidebar: a notification when a Claude Code session needs your input or finishes while its tab is not on screen — a system notification while the IDE is behind another app, a balloon otherwise, one per round however many sessions it names; a click brings up the session's tab. The blue dot follows the same rule.
+- Agents sidebar: *View Options* in its title bar — *Active Sessions* or *All Sessions*, and *Group By* *Project* or *Status* (*Needs input*, *Finished*, *Running*, *Idle*, *Past*), the same in every window.
+- Project tabs: an orange dot on a project's tab while an agent in that project waits for your input, with the sessions named in its tooltip.
+
 ### Fixed
 
 - Maximized terminal: a click on the file tab above it gives the editor back again, instead of blinking and leaving the terminal maximized.
