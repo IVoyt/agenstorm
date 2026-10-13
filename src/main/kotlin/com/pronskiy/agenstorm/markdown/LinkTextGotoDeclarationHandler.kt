@@ -14,6 +14,7 @@ import com.intellij.psi.PsiManager
 import com.intellij.psi.PsiPolyVariantReference
 import com.intellij.psi.impl.FakePsiElement
 import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.util.OpenSourceUtil
 import com.pronskiy.agenstorm.core.AgenstormSettings
 import org.intellij.plugins.markdown.lang.psi.impl.MarkdownHeader
 import org.intellij.plugins.markdown.lang.psi.impl.MarkdownInlineLink
@@ -108,7 +109,8 @@ private class SymbolTarget(private val destination: PsiElement, private val symb
 
     override fun canNavigateToSource(): Boolean = symbol.canNavigateToSource()
 
-    override fun navigate(requestFocus: Boolean) = symbol.navigate(requestFocus)
+    // Not `symbol.navigate`: that is override-only from 263.6800; the platform calls it for us.
+    override fun navigate(requestFocus: Boolean) = OpenSourceUtil.navigate(requestFocus, symbol)
 
     override fun getPresentableText(): String = name
 

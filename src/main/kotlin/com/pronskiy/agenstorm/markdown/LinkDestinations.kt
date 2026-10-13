@@ -9,6 +9,7 @@ import com.intellij.pom.Navigatable
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.util.OpenSourceUtil
 import org.intellij.plugins.markdown.lang.psi.impl.MarkdownLinkDestination
 import org.jetbrains.annotations.TestOnly
 
@@ -34,8 +35,9 @@ object LinkDestinations {
                 .firstOrNull { within.contains(it.textRange) && it.text.trim() == link }
             destination?.let { LinkTextGotoDeclarationHandler.targetsOf(it).firstOrNull() }
         }
-        val navigatable = target as? Navigatable ?: return
-        if (navigatable.canNavigate()) navigatable.navigate(true)
+        // Through the platform: `Navigatable.navigate` is override-only from 263.6800, and this navigates the same way —
+        // to source when it can, else wherever the target leads.
+        (target as? Navigatable)?.let { OpenSourceUtil.navigate(true, it) }
     }
 
     private fun browse(url: String) {

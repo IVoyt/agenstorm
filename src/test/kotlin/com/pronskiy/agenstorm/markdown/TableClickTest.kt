@@ -1,8 +1,10 @@
 package com.pronskiy.agenstorm.markdown
 
 import com.intellij.openapi.editor.Inlay
+import com.intellij.openapi.editor.LogicalPosition
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.psi.PsiDocumentManager
+import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.ui.scale.JBUIScale
 import com.intellij.util.ui.UIUtil
@@ -59,8 +61,19 @@ class TableClickTest : BasePlatformTestCase() {
         myFixture.addFileToProject("other.md", "elsewhere\n")
         val controller = configured("Above\n\n| a | b |\n|---|---|\n| [o](other.md) | d |\n\nBelow\n")
         assertTrue(controller.clickTable(pointOn(controller, row = 1, column = 0)))
-        UIUtil.dispatchAllInvocationEvents()
-        assertEquals("other.md", FileEditorManager.getInstance(project).selectedFiles.single().name)
+        // The platform navigates asynchronously (OpenSourceUtil, `ide.navigation.requests`).
+        PlatformTestUtil.waitWithEventsDispatching("the file never opened", { FileEditorManager.getInstance(project).selectedFiles.singleOrNull()?.name == "other.md" }, 5)
+        assertEmpty(browsed)
+    }
+
+    fun testAClickOnALocationLinkOpensTheFileAtLineAndColumn() {
+        myFixture.addFileToProject("src/Foo.php", "<?php\n\nfunction foo() {}\n")
+        val controller = configured("Above\n\n| a | b |\n|---|---|\n| [f](src/Foo.php:3:5) | d |\n\nBelow\n")
+        assertTrue(controller.clickTable(pointOn(controller, row = 1, column = 0)))
+        PlatformTestUtil.waitWithEventsDispatching("the file never opened", { FileEditorManager.getInstance(project).selectedTextEditor?.virtualFile?.name == "Foo.php" }, 5)
+        val opened = FileEditorManager.getInstance(project).selectedTextEditor!!
+        assertEquals("Foo.php", opened.virtualFile?.name)
+        assertEquals(LogicalPosition(2, 4), opened.caretModel.logicalPosition)
         assertEmpty(browsed)
     }
 
