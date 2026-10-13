@@ -50,6 +50,19 @@ class AgentsSettingsPanelTest : BasePlatformTestCase() {
         assertFalse(configurable.isModified)
     }
 
+    fun testNotificationsAreOnOnceTheSidebarIs() {
+        assertTrue(AgenstormSettings.State().agentSessionsNotify)
+        assertTrue(named<JBCheckBox>("agents.notify").isSelected)
+        assertFalse(named<JBCheckBox>("agents.notify").isEnabled)
+
+        named<JBCheckBox>("agents.enabled").isSelected = true
+        assertTrue(named<JBCheckBox>("agents.notify").isEnabled)
+        named<JBCheckBox>("agents.notify").isSelected = false
+        configurable.apply()
+
+        assertFalse(AgenstormSettings.getInstance().state.agentSessionsNotify)
+    }
+
     fun testApplyWritesTheStateAndFiresTheTopicOncePerChange() {
         var fired = 0
         ApplicationManager.getApplication().messageBus.connect(testRootDisposable).subscribe(AgenstormSettingsListener.TOPIC, AgenstormSettingsListener { fired++ })

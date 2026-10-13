@@ -416,6 +416,14 @@ class AgenstormConfigurable : BoundConfigurable(AgenstormBundle.message("setting
                     .applyToComponent { name = "agents.history" }
                     .comment(AgenstormBundle.message("settings.agents.history.comment"))
             }
+            // X6.2: on (decision 107), meaningful only while the sidebar reads the sessions.
+            row {
+                checkBox(AgenstormBundle.message("settings.agents.notify"))
+                    .bindSelected({ AgenstormSettings.getInstance().state.agentSessionsNotify }, { AgenstormSettings.getInstance().state.agentSessionsNotify = it })
+                    .enabledIf(agents.component.selected)
+                    .applyToComponent { name = "agents.notify" }
+                    .comment(AgenstormBundle.message("settings.agents.notify.comment"))
+            }
         }
         featureGroup("settings.group.notifications", "settings.notifications.autoDismiss.enabled", AgenstormSettings.State::notificationsAutoDismissEnabled) {
             row(AgenstormBundle.message("settings.notifications.autoDismiss.seconds")) {

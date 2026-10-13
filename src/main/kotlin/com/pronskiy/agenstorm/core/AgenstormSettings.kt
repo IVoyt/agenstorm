@@ -154,6 +154,8 @@ class AgenstormSettings : PersistentStateComponent<AgenstormSettings.State> {
         var agentSessionsEnabled: Boolean = false,
         /** Epic X: past sessions listed per project in the Agents sidebar (decision 104: 10, from 0 to 50). */
         var agentSessionsHistory: Int = 10,
+        /** Epic X, X6.2: tell when a session needs input or finishes while its tab is not on screen (decision 107: on). */
+        var agentSessionsNotify: Boolean = true,
         /** Epic G: comma-separated command names the shim is installed under; each one shadows the real command inside IDE terminals. */
         var terminalOpenCommandNames: String = "open",
         /** Epic G: let the IDE claim files it treats as binary; off means a PDF or a PNG goes to macOS, not to the editor. */

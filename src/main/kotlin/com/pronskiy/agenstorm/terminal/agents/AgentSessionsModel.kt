@@ -16,8 +16,12 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
@@ -44,6 +48,11 @@ class AgentSessionsModel(private val scope: CoroutineScope) : Disposable {
     private val groupsFlow = MutableStateFlow<List<ProjectGroup>>(emptyList())
     private val passes = Mutex()
     private val attention = AttentionTracker()
+
+    /** Step X6.2. Each read's events about sessions the IDE can bring up, in projects still open; told by [notifier]. */
+    private val newsFlow = MutableSharedFlow<List<AttentionEvent>>(extraBufferCapacity = 16, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+
+    internal var notifier = AgentNotifier(projectName = { base -> groups.value.firstOrNull { it.basePath == base }?.name ?: base }, open = ::open)
     private val transcripts = ClaudeTranscripts()
 
     /** The past sessions as last read, by base path, and when; read every [HISTORY_POLL] or on [refresh], under [passes]. */
@@ -55,12 +64,15 @@ class AgentSessionsModel(private val scope: CoroutineScope) : Disposable {
 
     val groups: StateFlow<List<ProjectGroup>> = groupsFlow.asStateFlow()
 
+    val news: SharedFlow<List<AttentionEvent>> = newsFlow.asSharedFlow()
+
     init {
         ApplicationManager.getApplication().messageBus.connect(this)
             .subscribe(AgenstormSettingsListener.TOPIC, AgenstormSettingsListener { state ->
                 AgentsToolWindowFactory.syncAvailability(state.agentSessionsEnabled)
                 refresh()
             })
+        scope.launch(Dispatchers.EDT) { newsFlow.collect { notifier.tell(it) } }
         scope.launch {
             while (isActive) {
                 if (enabled()) safePass(closing = null, readHistory = false)
@@ -114,21 +126,22 @@ class AgentSessionsModel(private val scope: CoroutineScope) : Disposable {
             return@withLock
         }
         val limit = AgenstormSettings.getInstance().state.agentSessionsHistory
-        val (rows, running) = withContext(Dispatchers.IO) {
+        val (rows, running, news) = withContext(Dispatchers.IO) {
             val home = claudeHome()
             val live = ClaudeLiveSessions.read(home)
             val background = BackgroundTerminals.getInstance().sessions.value.mapTo(HashSet()) { it.name }
             val places = AgentTabLocator.locateAll(live, probes, background, ProcessTree.snapshot())
             val roots = projects.flatMap { group -> listOf(group.basePath to group.basePath, realPath(group.basePath) to group.basePath) }.toMap()
             val grouped = SessionGrouping.group(live, roots)
-            attention.update(grouped.flatMap { (base, sessions) -> sessions.map { it to base } }, OnScreen.ids(places, screen))
+            val read = attention.update(grouped.flatMap { (base, sessions) -> sessions.map { it to base } }, OnScreen.ids(places, screen))
             val running = live.mapTo(HashSet()) { it.sessionId }
             val now = System.currentTimeMillis()
             if (readHistory || now - historyReadAt >= HISTORY_POLL.inWholeMilliseconds || projects.any { it.basePath !in history }) {
                 history = projects.associate { it.basePath to transcripts.recent(home, transcriptFolderOf(home, it.basePath), limit, running) }
                 historyReadAt = now
             }
-            grouped.mapValues { (_, sessions) -> sessions.map { SessionRow(it, places[it.sessionId] ?: SessionPlace.Elsewhere, finished = false) } } to running
+            val rows = grouped.mapValues { (_, sessions) -> sessions.map { SessionRow(it, places[it.sessionId] ?: SessionPlace.Elsewhere, finished = false) } }
+            Triple(rows, running, AgentNotifier.tellable(read.events, places))
         }
         // Written as one update against what is open now: a project that closed during the read stays out, and a dot
         // cleared meanwhile stays cleared.
@@ -141,6 +154,16 @@ class AgentSessionsModel(private val scope: CoroutineScope) : Disposable {
                 )
             })
         }
+        val stillListed = groupsFlow.value.mapTo(HashSet()) { it.basePath }
+        news.filter { it.basePath in stillListed }.takeIf { it.isNotEmpty() }?.let(newsFlow::tryEmit)
+    }
+
+    /** Step X6.2. Brings up the session [event] is about, as a click on its row would; nothing once it is gone. EDT. */
+    private fun open(event: AttentionEvent) {
+        val group = groups.value.firstOrNull { it.basePath == event.basePath } ?: return
+        val row = group.sessions.firstOrNull { it.session.sessionId == event.session.sessionId } ?: return
+        seen(row.session.sessionId)
+        AgentSessionOpener.open(ClickPlan.of(row, group.basePath))
     }
 
     private fun stillOpen(basePath: String, closing: Project?): Boolean =
