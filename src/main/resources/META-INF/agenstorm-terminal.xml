@@ -65,10 +65,5 @@
         <reference ref="Agenstorm.ToggleTerminalMaximized">
             <add-to-group group-id="TerminalToolwindowActionGroup" anchor="first"/>
         </reference>
-        <!-- U3.3: "N background terminals" next to it, shown only while there are any. -->
-        <action id="Agenstorm.BackgroundTerminals" class="com.pronskiy.agenstorm.terminal.tmux.BackgroundTerminalsAction"
-                icon="AllIcons.Nodes.Console">
-            <add-to-group group-id="TerminalToolwindowActionGroup" anchor="after" relative-to-action="Agenstorm.ToggleTerminalMaximized"/>
-        </action>
     </actions>
 </idea-plugin>

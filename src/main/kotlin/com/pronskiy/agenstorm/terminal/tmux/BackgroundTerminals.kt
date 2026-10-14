@@ -1,6 +1,5 @@
 package com.pronskiy.agenstorm.terminal.tmux
 
-import com.intellij.ide.ActivityTracker
 import com.intellij.ide.impl.OpenProjectTask
 import com.intellij.ide.impl.ProjectUtil
 import com.intellij.openapi.application.EDT
@@ -33,8 +32,8 @@ import kotlin.time.Duration.Companion.seconds
 /**
  * Step U3.3 (decision 91). The background terminals — sessions kept running past their last tab on a close or a quit
  * (U3.2) — as the IDE knows them: read from tmux every [POLL] while the setting is on, and at once after anything
- * Agenstorm itself changes, so the title-bar button and the status-bar widget ([BackgroundTerminalsAction],
- * [BackgroundTerminalsWidgetFactory]) show *N background terminals* only while there are any. *Open* and *Stop* act
+ * Agenstorm itself changes, so the status-bar widget ([BackgroundTerminalsWidgetFactory]) shows *N background
+ * terminals* only while there are any. *Open* and *Stop* act
  * on one ([open], [stop]). Each read also cleans up (U3.4): a background terminal whose program has ended is stopped,
  * and the run's first read stops what an earlier run left behind. Nobody's busy process is ever ended on a timer.
  */
@@ -133,9 +132,8 @@ class BackgroundTerminals(private val scope: CoroutineScope) {
         withContext(Dispatchers.EDT) { showCount(availabilityChanged = countChanged) }
     }
 
-    /** The button updates with the next toolbar refresh; each window's widget is added, removed or redrawn. */
+    /** Each window's widget is added, removed or redrawn. */
     private fun showCount(availabilityChanged: Boolean) {
-        ActivityTracker.getInstance().inc()
         for (project in ProjectManager.getInstance().openProjects) {
             if (project.isDisposed || project.isDefault) continue
             if (availabilityChanged) project.getService(StatusBarWidgetsManager::class.java)?.updateWidget(BackgroundTerminalsWidgetFactory::class.java)

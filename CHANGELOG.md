@@ -10,6 +10,10 @@
 - Agents sidebar: *View Options* in its title bar — *Active Sessions* or *All Sessions*, and *Group By* *Project* or *Status* (*Needs input*, *Finished*, *Running*, *Idle*, *Past*), the same in every window.
 - Project tabs: an orange dot on a project's tab while an agent in that project waits for your input, with the sessions named in its tooltip.
 
+### Changed
+
+- Background terminals: listed only in the status bar; the *N background terminals* button no longer sits next to the Terminal's tabs.
+
 ### Fixed
 
 - Maximized terminal: a click on the file tab above it gives the editor back again, instead of blinking and leaving the terminal maximized.

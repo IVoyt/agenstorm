@@ -1,9 +1,6 @@
 package com.pronskiy.agenstorm.terminal.tmux
 
-import com.intellij.openapi.actionSystem.ActionUpdateThread
-import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DefaultActionGroup
-import com.intellij.openapi.actionSystem.ex.ActionUtil
 import com.intellij.openapi.actionSystem.impl.SimpleDataContext
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.Project
@@ -20,7 +17,7 @@ import java.awt.Point
 import java.awt.event.MouseEvent
 
 /**
- * Step U3.3: the one list both places open — a row per background terminal (what runs, the worktree, since when) with
+ * Step U3.3: the list the status-bar widget opens — a row per background terminal (what runs, the worktree, since when) with
  * *Open* and *Stop*, and *Stop All* at the bottom (Superset's "N background terminal sessions" was the model).
  */
 object BackgroundTerminalsPopup {
@@ -52,26 +49,6 @@ object BackgroundTerminalsPopup {
     }
 
     fun count(size: Int): String = AgenstormBundle.message("terminal.tmux.background.count", size)
-}
-
-/** Step U3.3: *N background terminals* in the Terminal tool window's title bar, next to the maximize toggle; hidden while there are none. */
-class BackgroundTerminalsAction : DumbAwareAction() {
-
-    override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
-
-    override fun update(e: AnActionEvent) {
-        val count = BackgroundTerminals.getInstance().sessions.value.size
-        e.presentation.isEnabledAndVisible = e.project != null && count > 0
-        if (count == 0) return
-        e.presentation.text = BackgroundTerminalsPopup.count(count)
-        e.presentation.putClientProperty(ActionUtil.SHOW_TEXT_IN_TOOLBAR, true)
-    }
-
-    override fun actionPerformed(e: AnActionEvent) {
-        val popup = BackgroundTerminalsPopup.create(e.project ?: return) ?: return
-        val component = e.inputEvent?.component
-        if (component != null) popup.showUnderneathOf(component) else popup.showInBestPositionFor(e.dataContext)
-    }
 }
 
 /** Step U3.3: *N background terminals* in the status bar, of every window, while there are any. Registered in `agenstorm-terminal.xml`. */

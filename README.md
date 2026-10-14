@@ -529,8 +529,8 @@ scrollback is tmux's: the mouse wheel enters its copy mode, and a selection ther
   *Process Is Running* dialog: **Disconnect** keeps it running in the background, **Terminate** ends it.
   Quitting asks once for every window: **Keep Running** or **Stop All**. A window Agenstorm closes by
   itself — an idle project offloaded, a worktree switch — keeps them without asking.
-- **Background terminals.** Kept terminals are listed as *N background terminals* in the Terminal tool
-  window's title bar and in the status bar, each with **Open** (a tab in this window when it belongs to the
+- **Background terminals.** Kept terminals are listed as *N background terminals* in the status bar,
+  each with **Open** (a tab in this window when it belongs to the
   same repository, otherwise in its own worktree's window) and **Stop**. When a worktree opens again, its
   background terminals come back as tabs, also after a restart. One whose program has ended is cleaned up;
   nothing that runs is ever stopped on a timer.
