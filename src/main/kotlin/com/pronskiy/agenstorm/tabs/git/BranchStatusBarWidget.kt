@@ -30,6 +30,7 @@ import java.awt.event.ComponentEvent
 import java.awt.event.HierarchyEvent
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
+import javax.swing.BorderFactory
 import javax.swing.JComponent
 import javax.swing.JPanel
 import javax.swing.SwingUtilities
@@ -54,7 +55,7 @@ class BranchStatusBarWidget(project: Project) : GitBranchWidget(project), Custom
         isVisible = false
     }
     internal val label = JBLabel(AllIcons.Vcs.Branch).apply {
-        border = JBUI.Borders.empty(0, JBUI.scale(DEFAULT_STRIPE_WIDTH), 0, RIGHT_PADDING)
+        border = JBUI.Borders.empty(0, DEFAULT_STRIPE_WIDTH + STRIPE_GAP, 0, RIGHT_PADDING)
         iconTextGap = JBUI.scale(4)
         cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
         addMouseListener(object : MouseAdapter() {
@@ -62,8 +63,8 @@ class BranchStatusBarWidget(project: Project) : GitBranchWidget(project), Custom
                 if (e.button == MouseEvent.BUTTON1) showPopup()
             }
         })
-        // Pixel alignment with the tool window above: pad the icon out to the tool window stripe's right edge,
-        // whatever inset the status bar itself adds. Re-done whenever the label is shown or moved; converges.
+        // Pixel alignment with the tool window above: pad the icon out to a little past the tool window stripe's
+        // right edge, whatever inset the status bar itself adds. Re-done whenever the label is shown or moved; converges.
         addHierarchyListener { if (it.changeFlags and HierarchyEvent.SHOWING_CHANGED.toLong() != 0L && isShowing) alignWithToolWindowStripe() }
         addComponentListener(object : ComponentAdapter() {
             override fun componentMoved(e: ComponentEvent) = alignWithToolWindowStripe()
@@ -128,7 +129,7 @@ class BranchStatusBarWidget(project: Project) : GitBranchWidget(project), Custom
         }
     }
 
-    /** Left padding so the icon starts where the tool window content starts: at the left stripe's right edge. */
+    /** Left padding so the icon starts [STRIPE_GAP] past the left stripe's right edge. */
     private fun alignWithToolWindowStripe() {
         if (!label.isShowing) return
         val root = SwingUtilities.getRoot(label) as? Container ?: return
@@ -137,7 +138,8 @@ class BranchStatusBarWidget(project: Project) : GitBranchWidget(project), Custom
         val left = alignmentPadding(stripeRight, labelX)
         val current = label.insets.left
         if (left != current) {
-            label.border = JBUI.Borders.empty(0, left, 0, RIGHT_PADDING)
+            // Measured pixels: JBUI.Borders.empty would scale them a second time.
+            label.border = BorderFactory.createEmptyBorder(0, left, 0, JBUI.scale(RIGHT_PADDING))
             label.revalidate()
             label.repaint()
         }
@@ -146,10 +148,14 @@ class BranchStatusBarWidget(project: Project) : GitBranchWidget(project), Custom
     companion object {
         /** Width of the new UI's tool window stripe, used until the real one has been measured. */
         const val DEFAULT_STRIPE_WIDTH = 40
-        private val RIGHT_PADDING = JBUI.scale(8)
 
-        /** Padding that puts content starting at [labelX] onto [stripeRight]; never negative, never absurd. */
-        fun alignmentPadding(stripeRight: Int, labelX: Int): Int = (stripeRight - labelX).coerceIn(0, JBUI.scale(80))
+        /** Room between the stripe and the icon, so the icon does not lean on the stripe (Y1.2). Unscaled. */
+        const val STRIPE_GAP = 8
+        private const val RIGHT_PADDING = 8
+
+        /** Padding that puts content starting at [labelX] [STRIPE_GAP] past [stripeRight]; never negative, never absurd. */
+        fun alignmentPadding(stripeRight: Int, labelX: Int): Int =
+            (stripeRight + JBUI.scale(STRIPE_GAP) - labelX).coerceIn(0, JBUI.scale(80))
 
         /**
          * The right edge (in [root] coordinates) of the leftmost tool window stripe, found through its buttons
