@@ -713,6 +713,12 @@ widescreen layout you chose yourself is never claimed.
 keystroke. Nothing in your keymap is changed to arrange it, a balloon says so the first time, and
 rebinding either action or switching the feature off gives it back.
 
+**Status bar hidden, 2026.3.** With the status bar off, the 2026.3 EAPs show indexing and other
+progress as a floating panel near the bottom-right of the editor area. While the terminal is maximized
+the editor area is only its tab row, so the panel lands at the top right of the window, over the
+toolbar. Turn the status bar back on (View → Appearance → Status Bar), or switch the floating panel
+off with the registry key `ide.show.progress.without.status.bar` (Help → Find Action → Registry…).
+
 Settings → Tools → Agenstorm → Terminal size.
 
 ---
