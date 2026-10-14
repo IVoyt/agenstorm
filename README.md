@@ -351,7 +351,10 @@ Run, Tools and Git as submenus. Git is named after the project's version control
 
 - Menus other plugins add to the top level stay there, and so does Build where an IDE shows it.
 - The menus themselves are untouched: shortcuts, Find Action, and items other plugins add to Tools or
-  Git keep working.
+  Git keep working, and so do your own changes to them in Settings → Appearance & Behavior → Menus and
+  Toolbars.
+- A plugin installed while More is on that puts its own menu right after one of the six shows it at the
+  end of the bar until More is switched off or the IDE restarts.
 - Switching it off puts every menu back where it was, without a restart, and so does uninstalling the
   plugin.
 
