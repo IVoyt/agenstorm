@@ -15,6 +15,8 @@ import kotlin.io.path.writeText
 class AgentSessionsModelTest : BasePlatformTestCase() {
 
     private lateinit var home: Path
+    private lateinit var notifier: AgentNotifier
+    private val told = java.util.concurrent.CopyOnWriteArrayList<String>()
     private val model get() = AgentSessionsModel.getInstance()
     private val self = ProcessHandle.current()
 
@@ -23,7 +25,29 @@ class AgentSessionsModelTest : BasePlatformTestCase() {
         home = Files.createTempDirectory("claude-home")
         home.resolve("sessions").createDirectories()
         model.claudeHome = { home }
+        notifier = model.notifier
+        model.notifier = recording()
     }
+
+    /** A notifier that records titles instead of showing anything; [failFirst] makes its first notice throw. */
+    private fun recording(failFirst: Boolean = false): AgentNotifier {
+        var failing = failFirst
+        val sink = object : NoticeSink {
+            override fun system(notice: AttentionNotice, open: () -> Unit) = record(notice)
+            override fun balloon(notice: AttentionNotice, shows: List<Pair<String, AttentionEvent>>, open: (AttentionEvent) -> Unit) = record(notice)
+            private fun record(notice: AttentionNotice) {
+                if (failing) {
+                    failing = false
+                    throw IllegalStateException("a notice that failed")
+                }
+                told += notice.title
+            }
+        }
+        return AgentNotifier(sink, active = { true }, enabled = { true }, projectName = { it }, open = {})
+    }
+
+    private fun event(name: String, base: String = "/w/app") =
+        AttentionEvent(AttentionEvent.Kind.FINISHED, LiveSession(1, "id-$name", base, name, "idle", null, null, null), base)
 
     override fun tearDown() {
         try {
@@ -31,6 +55,7 @@ class AgentSessionsModelTest : BasePlatformTestCase() {
             model.refresh()
             ProjectAttention.getInstance().clear()
             model.claudeHome = ClaudeLiveSessions::home
+            model.notifier = notifier
             @OptIn(kotlin.io.path.ExperimentalPathApi::class)
             home.deleteRecursively()
         } finally {
@@ -116,6 +141,43 @@ class AgentSessionsModelTest : BasePlatformTestCase() {
         val marks = AgentSessionsModel.waitingByProject(listOf(ProjectGroup("app", "/w/app", listOf(busy, waiting)), ProjectGroup("other", "/w/other")))
 
         assertEquals("named as their rows are", mapOf("/w/app" to listOf("b"), "/w/other" to emptyList()), marks)
+    }
+
+    fun testANoticeThatFailsDoesNotStopTheNextOne() {
+        model.notifier = recording(failFirst = true)
+
+        model.tell(listOf(event("first")))
+        model.tell(listOf(event("second")))
+
+        PlatformTestUtil.waitWithEventsDispatching("the second notice never came", { told.isNotEmpty() }, 5)
+        assertEquals(listOf("'second' finished"), told)
+    }
+
+    fun testASessionOutsideTheIdeFinishingKeepsItsDotButIsNotTold() {
+        AgenstormSettings.getInstance().state.agentSessionsEnabled = true
+        writeSession("busy")
+        waitFor("busy never showed") { ownSessions().singleOrNull()?.session?.status == "busy" }
+
+        writeSession("idle")
+        waitFor("the dot never showed") { ownSessions().singleOrNull()?.finished == true }
+        PlatformTestUtil.dispatchAllEventsInIdeEventQueue()
+
+        assertEquals("no Terminal tab runs this JVM, so there is nothing to bring up", emptyList<String>(), told)
+    }
+
+    fun testNewsIsWhatTheIdeCanBringUpInAProjectStillListed() {
+        val tab = event("tab")
+        val background = event("bg")
+        val outside = event("out")
+        val closed = event("closed", base = "/w/closed")
+        val places = mapOf<String, SessionPlace<String>>(
+            tab.session.sessionId to SessionPlace.InTab("t"),
+            background.session.sessionId to SessionPlace.Background("app-1"),
+            outside.session.sessionId to SessionPlace.Elsewhere,
+            closed.session.sessionId to SessionPlace.InTab("t2"),
+        )
+
+        assertEquals(listOf(tab, background), AgentSessionsModel.newsOf(listOf(tab, background, outside, closed), places, listed = setOf("/w/app")))
     }
 
     fun testOffReadsNothing() {

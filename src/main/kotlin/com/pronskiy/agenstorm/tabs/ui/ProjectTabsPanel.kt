@@ -4,6 +4,8 @@ import com.intellij.icons.AllIcons
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.EDT
+import com.intellij.openapi.application.ModalityState
+import com.intellij.openapi.application.asContextElement
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
@@ -154,8 +156,9 @@ class ProjectTabsPanel(private val model: ProjectTabsModel = ProjectTabsModel.ge
         val disposable = Disposer.newDisposable("Agenstorm project tabs panel")
         subscription = disposable
         model.addListener({ tabs -> showTabs(tabs) }, disposable)
-        // X6.6: the projects where an agent waits for input, as the Agents model last read them.
-        val waiting = ApplicationManager.getApplication().service<AgenstormAppScope>().scope.launch(Dispatchers.EDT) {
+        // X6.6: the projects where an agent waits for input, as the Agents model last read them; any modality, so the
+        // dot moves while a dialog is open too.
+        val waiting = ApplicationManager.getApplication().service<AgenstormAppScope>().scope.launch(Dispatchers.EDT + ModalityState.any().asContextElement()) {
             ProjectAttention.getInstance().waiting.collect(::showWaiting)
         }
         Disposer.register(disposable) { waiting.cancel() }

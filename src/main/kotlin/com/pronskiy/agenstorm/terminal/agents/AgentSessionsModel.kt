@@ -3,6 +3,8 @@ package com.pronskiy.agenstorm.terminal.agents
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.EDT
+import com.intellij.openapi.application.ModalityState
+import com.intellij.openapi.application.asContextElement
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.logger
@@ -75,7 +77,19 @@ class AgentSessionsModel(private val scope: CoroutineScope) : Disposable {
                 AgentsToolWindowFactory.syncAvailability(state.agentSessionsEnabled)
                 refresh()
             })
-        scope.launch(Dispatchers.EDT) { newsFlow.collect { notifier.tell(it) } }
+        // Any modality: a notice is most needed while a dialog waits in a window you left; one that fails must not
+        // stop the ones after it.
+        scope.launch(Dispatchers.EDT + ModalityState.any().asContextElement()) {
+            newsFlow.collect { news ->
+                try {
+                    notifier.tell(news)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Throwable) {
+                    LOG.warn("Agenstorm: telling about Claude Code sessions failed", e)
+                }
+            }
+        }
         scope.launch {
             while (isActive) {
                 if (enabled()) safePass(closing = null, readHistory = false)
@@ -119,7 +133,8 @@ class AgentSessionsModel(private val scope: CoroutineScope) : Disposable {
 
     private suspend fun pass(closing: Project?, readHistory: Boolean) = passes.withLock {
         val on = enabled()
-        val (projects, probes, screen) = withContext(Dispatchers.EDT) {
+        // Only UI state is read here, so a modal dialog need not hold the read up (any modality, X6.2).
+        val (projects, probes, screen) = withContext(Dispatchers.EDT + ModalityState.any().asContextElement()) {
             Triple(openGroups(closing), if (on) AgentTabLocator.probes() else emptyList(), if (on) OnScreen.current() else OnScreen.Screen.nothing())
         }
         if (!on) {
@@ -130,14 +145,14 @@ class AgentSessionsModel(private val scope: CoroutineScope) : Disposable {
             return@withLock
         }
         val limit = AgenstormSettings.getInstance().state.agentSessionsHistory
-        val (rows, running, news) = withContext(Dispatchers.IO) {
+        val (rows, running, found) = withContext(Dispatchers.IO) {
             val home = claudeHome()
             val live = ClaudeLiveSessions.read(home)
             val background = BackgroundTerminals.getInstance().sessions.value.mapTo(HashSet()) { it.name }
             val places = AgentTabLocator.locateAll(live, probes, background, ProcessTree.snapshot())
             val roots = projects.flatMap { group -> listOf(group.basePath to group.basePath, realPath(group.basePath) to group.basePath) }.toMap()
             val grouped = SessionGrouping.group(live, roots)
-            val read = attention.update(grouped.flatMap { (base, sessions) -> sessions.map { it to base } }, OnScreen.ids(places, screen))
+            val events = attention.update(grouped.flatMap { (base, sessions) -> sessions.map { it to base } }, OnScreen.ids(places, screen)).events
             val running = live.mapTo(HashSet()) { it.sessionId }
             val now = System.currentTimeMillis()
             if (readHistory || now - historyReadAt >= HISTORY_POLL.inWholeMilliseconds || projects.any { it.basePath !in history }) {
@@ -145,7 +160,7 @@ class AgentSessionsModel(private val scope: CoroutineScope) : Disposable {
                 historyReadAt = now
             }
             val rows = grouped.mapValues { (_, sessions) -> sessions.map { SessionRow(it, places[it.sessionId] ?: SessionPlace.Elsewhere, finished = false) } }
-            Triple(rows, running, AgentNotifier.tellable(read.events, places))
+            Triple(rows, running, events to places)
         }
         // Written as one update against what is open now: a project that closed during the read stays out, and a dot
         // cleared meanwhile stays cleared.
@@ -159,8 +174,13 @@ class AgentSessionsModel(private val scope: CoroutineScope) : Disposable {
             })
         }
         ProjectAttention.getInstance().set(if (AgenstormSettings.getInstance().state.agentSessionsTabBadge) waitingByProject(groupsFlow.value) else emptyMap())
-        val stillListed = groupsFlow.value.mapTo(HashSet()) { it.basePath }
-        news.filter { it.basePath in stillListed }.takeIf { it.isNotEmpty() }?.let(newsFlow::tryEmit)
+        val (events, places) = found
+        tell(newsOf(events, places, groupsFlow.value.mapTo(HashSet()) { it.basePath }))
+    }
+
+    /** Step X6.2. Hands [news] to the [notifier], on the EDT and in order; nothing for an empty list. Any thread. */
+    internal fun tell(news: List<AttentionEvent>) {
+        if (news.isNotEmpty()) newsFlow.tryEmit(news)
     }
 
     /** Step X6.2. Brings up the session [event] is about, as a click on its row would; nothing once it is gone. EDT. */
@@ -203,6 +223,10 @@ class AgentSessionsModel(private val scope: CoroutineScope) : Disposable {
 
         /** Past sessions change slowly; listing every transcript of every project each [POLL] would not. */
         private val HISTORY_POLL = 15.seconds
+
+        /** Step X6.2, pure: the events worth telling — about sessions the IDE can bring up, in projects still listed. */
+        fun <T> newsOf(events: List<AttentionEvent>, places: Map<String, SessionPlace<T>>, listed: Set<String>): List<AttentionEvent> =
+            AgentNotifier.tellable(events, places).filter { it.basePath in listed }
 
         /** Step X6.5, pure: each project's base path → the sessions waiting for input there, named as their rows are. */
         fun waitingByProject(groups: List<ProjectGroup>): Map<String, List<String>> =
