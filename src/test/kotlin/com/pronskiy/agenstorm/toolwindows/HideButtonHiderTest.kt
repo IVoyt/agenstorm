@@ -113,6 +113,29 @@ class HideButtonHiderTest : BasePlatformTestCase() {
         assertFalse(hide.isVisible)
     }
 
+    fun testASplitCellIsReportedAndItsHeaderHiddenOnTheNextSync() {
+        var reported = 0
+        hider.sync(content, hide = true) { reported++ }
+        val cellHide = Button(Hide())
+        decorator.add(Decorator().apply { add(Header().apply { add(JPanel().apply { add(cellHide) }) }) })
+
+        assertEquals(1, reported)
+        assertTrue("not yet: the new cell's header is reached by the next sync", cellHide.isVisible)
+        hider.sync(content, hide = true) { reported++ }
+        assertFalse(cellHide.isVisible)
+    }
+
+    fun testShowingStopsWatchingTheDecoratorsToo() {
+        var reported = 0
+        hider.sync(content, hide = true) { reported++ }
+        hider.sync(content, hide = false) { reported++ }
+
+        decorator.add(JPanel())
+
+        assertEquals(0, reported)
+        assertFalse(hider.isWatching())
+    }
+
     /** The platform's names are spelled out in one place; this keeps the spelling honest on the IDE we build against. */
     fun testThePlatformClassesExistUnderTheirNames() {
         for (name in listOf(HideButtonHider.DECORATOR_CLASS, HideButtonHider.HEADER_CLASS, HideButtonHider.HIDE_ACTION_CLASS)) {

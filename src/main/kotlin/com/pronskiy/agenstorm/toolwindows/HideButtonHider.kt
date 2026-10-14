@@ -39,6 +39,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * The button is an `ActionButton`, which implements the public [AnActionHolder]; neither it nor its toolbar ever
  * calls `setVisible`, and the toolbar gives an invisible child no size. A toolbar does rebuild its buttons when its
  * visible actions change, so every container in the header is watched and a Hide button added to it is hidden too.
+ * A split adds a cell with a decorator and header of its own; the decorators are watched for that, and report it.
  */
 class HideButtonHider(private val names: Names = Names.PLATFORM) {
 
@@ -49,30 +50,38 @@ class HideButtonHider(private val names: Names = Names.PLATFORM) {
         }
     }
 
-    /** Containers in a header we listen to; weak, so a decorator the platform rebuilt takes its listeners with it. */
+    /** Containers in a header we listen to; weak, so a header the platform dropped takes its listener with it. */
     private val watched = WeakHashMap<Container, ContainerListener>()
 
+    /** Decorators we listen to for a child added — a split's new cell, which brings a header of its own. */
+    private val watchedDecorators = WeakHashMap<Container, ContainerListener>()
+
     /**
-     * EDT. Hides ([hide]) or shows the Hide buttons in the header of the tool window whose content is [content], and
-     * starts or stops watching that header. Returns whether a header was found.
+     * EDT. Hides ([hide]) or shows the Hide buttons in the headers of the tool window whose content is [content], and
+     * starts or stops watching them. While hidden, a decorator that gains a child calls [onLayoutChange], so the caller
+     * can sync again and reach a new cell's header. Returns whether a header was found.
      */
-    fun sync(content: Component, hide: Boolean): Boolean {
+    fun sync(content: Component, hide: Boolean, onLayoutChange: () -> Unit = {}): Boolean {
         val decorator = outermostDecorator(content) ?: return false
         val headers = mutableListOf<Container>()
-        walk(decorator, skip = content) { if (it is Container && isA(it, names.header)) headers += it }
+        val decorators = mutableListOf<Container>()
+        walk(decorator, skip = content) {
+            if (it is Container && it.javaClass.name == names.decorator) decorators += it
+            if (it is Container && isA(it, names.header)) headers += it
+        }
+        if (!hide) stopWatching()
         for (header in headers) {
             walk(header) { component ->
-                if (component is Container) {
-                    if (hide) watch(component) else unwatch(component)
-                }
+                if (hide && component is Container) watch(component)
                 if (isHideButton(component)) setShown(component, !hide)
             }
         }
+        if (hide) decorators.forEach { watchLayout(it, onLayoutChange) }
         return headers.isNotEmpty()
     }
 
     /** True while any container is watched; for tests and the debug log. */
-    fun isWatching(): Boolean = watched.isNotEmpty()
+    fun isWatching(): Boolean = watched.isNotEmpty() || watchedDecorators.isNotEmpty()
 
     /** The outermost decorator above [content]: a split tool window nests decorators, the header belongs to the outer one. */
     private fun outermostDecorator(content: Component): Container? {
@@ -104,8 +113,23 @@ class HideButtonHider(private val names: Names = Names.PLATFORM) {
         container.addContainerListener(listener)
     }
 
-    private fun unwatch(container: Container) {
-        watched.remove(container)?.let(container::removeContainerListener)
+    private fun watchLayout(decorator: Container, onLayoutChange: () -> Unit) {
+        if (watchedDecorators.containsKey(decorator)) return
+        val listener = object : ContainerListener {
+            override fun componentAdded(e: ContainerEvent) = onLayoutChange()
+
+            override fun componentRemoved(e: ContainerEvent) = Unit
+        }
+        watchedDecorators[decorator] = listener
+        decorator.addContainerListener(listener)
+    }
+
+    /** Every listener off, including those on headers and decorators the last walk no longer reached. */
+    private fun stopWatching() {
+        for (map in listOf(watched, watchedDecorators)) {
+            for ((container, listener) in map) container.removeContainerListener(listener)
+            map.clear()
+        }
     }
 
     private fun setShown(component: Component, show: Boolean) {
@@ -150,27 +174,39 @@ class TerminalHideButton(private val project: Project) : Disposable {
     /** Collapses the passes asked for by a burst of tool window events into one. */
     private val scheduled = AtomicBoolean(false)
 
+    /**
+     * Set by [restore] and [dispose]. A pass queued just before the plugin unloads would otherwise run after the
+     * button came back, with the plugin's services already gone.
+     */
+    @Volatile
+    private var closed = false
+
     /** [sync] with the setting, on the EDT, at most one pass pending, also while the settings dialog is open. */
     fun applyLater() {
-        if (!scheduled.compareAndSet(false, true)) return
+        if (closed || !scheduled.compareAndSet(false, true)) return
         ApplicationManager.getApplication().invokeLater({
             scheduled.set(false)
-            if (!project.isDisposed) sync(AgenstormSettings.getInstance().state.terminalHideHeaderHideButton)
+            if (!closed && !project.isDisposed) sync(AgenstormSettings.getInstance().state.terminalHideHeaderHideButton)
         }, ModalityState.any())
     }
 
-    /** EDT. The button back, whatever the setting says; plugin unload. */
-    fun restore() = sync(hide = false)
+    /** EDT. The button back, whatever the setting says, and no pass after it; plugin unload. */
+    fun restore() {
+        closed = true
+        sync(hide = false)
+    }
 
     private fun sync(hide: Boolean) {
         if (project.isDisposed) return
         val terminal = ToolWindowManager.getInstance(project).getToolWindow(TERMINAL_ID) ?: return
         val content = terminal.contentManagerIfCreated?.component ?: return
-        val found = hider.sync(content, hide)
+        val found = hider.sync(content, hide, onLayoutChange = ::applyLater)
         if (!found && LOG.isDebugEnabled) LOG.debug("Terminal header: no ${HideButtonHider.HEADER_CLASS} under its decorator")
     }
 
-    override fun dispose() = Unit
+    override fun dispose() {
+        closed = true
+    }
 
     companion object {
         private val LOG = logger<TerminalHideButton>()
@@ -181,9 +217,11 @@ class TerminalHideButton(private val project: Project) : Disposable {
 }
 
 /**
- * The Terminal's decorator and header are made when it is first shown and remade when it floats, docks or moves, so
- * every tool window event re-applies; the passes collapse into one and only walk the Terminal's header. The overload
- * of `stateChanged` that names the tool window is `@ApiStatus.Internal`, so the public one is used for every window.
+ * The Terminal's decorator and header are made once, when it is first shown; floating or docking it only moves them.
+ * What changes is inside: the header's toolbar rebuilds its buttons, and a split adds a cell with a header of its own,
+ * both caught by [HideButtonHider]'s listeners. Every tool window event re-applies as well, as a fallback; the passes
+ * collapse into one and only walk the Terminal's headers. The overload of `stateChanged` that names the tool window is
+ * `@ApiStatus.Internal`, so the public one is used for every window.
  */
 class TerminalHideButtonToolWindowListener(private val project: Project) : ToolWindowManagerListener {
 
