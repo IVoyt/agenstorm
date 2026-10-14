@@ -3,7 +3,8 @@ package com.pronskiy.agenstorm.mainmenu
 import com.intellij.ide.AppLifecycleListener
 import com.intellij.ide.plugins.DynamicPluginListener
 import com.intellij.ide.plugins.IdeaPluginDescriptor
-import com.intellij.ide.ui.customization.CustomActionsListener
+import com.intellij.ide.ui.customization.CustomActionsSchema
+import com.intellij.ide.ui.customization.CustomizationUtil
 import com.intellij.openapi.actionSystem.ActionGroup
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.ActionUpdateThread
@@ -24,8 +25,13 @@ import com.pronskiy.agenstorm.core.AgenstormSettings
  * The stock groups are moved inside the stock `MainMenu` with `DefaultActionGroup.remove`/`add`, not replaced
  * (decision 109). Every id keeps its stock instance, so a plugin installed later that adds to `ToolsMenu` or to
  * `MainMenu` adds where it always did; an `ActionSlot` on the six ids would have left placeholders for it to add to.
- * The menu bar, the macOS screen menu and the New UI's main menu button all re-read `MainMenu` on the action timer,
- * so a fold or an unfold shows without a restart.
+ * `DefaultActionGroup.add`/`remove` bump the group's modification stamp, and the menu bar, the macOS screen menu and
+ * the New UI's main menu button re-read `MainMenu` on the action timer when it moved, so a fold or an unfold shows
+ * without a restart and without a nudge.
+ *
+ * A menu that a plugin installed while folded anchors after one of the six (say `ToolsMenu`) finds no anchor; the
+ * group keeps it pending at the end of the bar until the unfold puts its anchor back. At startup that cannot happen:
+ * the fold runs at `appFrameCreated`, after every plugin's groups are in place.
  *
  * EDT only: the main menu is shared by every window.
  */
@@ -65,7 +71,6 @@ object MainMenuFolder {
         menu.add(more, plan.moreAfter?.let { Constraints(Anchor.AFTER, it) } ?: Constraints.FIRST, actionManager)
         snapshot = ids
         folded = plan.remove
-        menusChanged()
     }
 
     /** Puts the entries back where they were. A menu this object never folded is left alone. */
@@ -84,7 +89,6 @@ object MainMenuFolder {
         }
         snapshot = null
         folded = emptyList()
-        menusChanged()
     }
 
     /** True while *More* is on the main menu. */
@@ -102,17 +106,19 @@ object MainMenuFolder {
         }
         return menu
     }
-
-    /** Toolbars and customised groups re-read on the next update; the menu bar follows the action timer anyway. */
-    private fun menusChanged() {
-        CustomActionsListener.fireSchemaChanged()
-    }
 }
 
 /**
  * Step Y1.4: *More*, holding the six folded menus as submenus. It resolves their ids at each update rather than holding
  * instances, so the VCS menu's own name ("Git") and children, and any group another plugin put in one of those slots,
  * come through as they are. Registered in `plugin.xml` with no `add-to-group`: only [MainMenuFolder] places it.
+ *
+ * **Menus and Toolbars.** The platform applies the user's customizations of a top-level menu by wrapping it, as a
+ * child of the wrapped `MainMenu`, with `CustomizationUtil.correctActionGroup(menu, schema, "", rootName, false)`, and
+ * matches each customization by the parent group's text — "Tools" — not by its path. Under *More* the six are no
+ * longer `MainMenu`'s children, so *More* wraps them the same way. Except when the platform wraps *More* itself (a
+ * customization made while folded names it): then it wraps *More*'s children too, and wrapping them here as well would
+ * apply each customization twice.
  */
 class MoreMenuGroup : ActionGroup(), DumbAware {
 
@@ -120,11 +126,28 @@ class MoreMenuGroup : ActionGroup(), DumbAware {
         templatePresentation.isPopupGroup = true
     }
 
+    /** The menus last resolved, and their wrapped forms, for one schema version; rebuilt when either changes. */
+    private class Corrected(val stamp: Int, val menus: List<AnAction>, val children: Array<AnAction>)
+
+    @Volatile
+    private var corrected: Corrected? = null
+
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
 
     override fun getChildren(e: AnActionEvent?): Array<AnAction> {
         val actionManager = ActionManager.getInstance()
-        return MoreMenuPlan.FOLDED_IDS.mapNotNull { actionManager.getAction(it) }.toTypedArray()
+        val menus = MoreMenuPlan.FOLDED_IDS.mapNotNull { actionManager.getAction(it) }
+        val schema = CustomActionsSchema.getInstance()
+        if (schema.isCorrectActionGroup(this, "")) return menus.toTypedArray()
+        val stamp = schema.modificationStamp
+        corrected?.let { last ->
+            if (last.stamp == stamp && last.menus.size == menus.size && last.menus.indices.all { last.menus[it] === menus[it] }) {
+                return last.children
+            }
+        }
+        val root = schema.getDisplayName(MainMenuFolder.MAIN_MENU_ID) ?: ""
+        val children = menus.map { if (it is ActionGroup) CustomizationUtil.correctActionGroup(it, schema, "", root, false) else it }
+        return children.toTypedArray().also { corrected = Corrected(stamp, menus, it) }
     }
 }
 
