@@ -182,7 +182,8 @@ class TerminalHideButton(private val project: Project) : Disposable {
 
 /**
  * The Terminal's decorator and header are made when it is first shown and remade when it floats, docks or moves, so
- * every Terminal event re-applies; the passes collapse into one and only walk the header.
+ * every tool window event re-applies; the passes collapse into one and only walk the Terminal's header. The overload
+ * of `stateChanged` that names the tool window is `@ApiStatus.Internal`, so the public one is used for every window.
  */
 class TerminalHideButtonToolWindowListener(private val project: Project) : ToolWindowManagerListener {
 
@@ -190,8 +191,8 @@ class TerminalHideButtonToolWindowListener(private val project: Project) : ToolW
         if (toolWindow.id == TerminalHideButton.TERMINAL_ID) TerminalHideButton.getInstance(project).applyLater()
     }
 
-    override fun stateChanged(toolWindowManager: ToolWindowManager, toolWindow: ToolWindow, changeType: ToolWindowManagerEventType) {
-        if (toolWindow.id == TerminalHideButton.TERMINAL_ID) TerminalHideButton.getInstance(project).applyLater()
+    override fun stateChanged(toolWindowManager: ToolWindowManager, changeType: ToolWindowManagerEventType) {
+        TerminalHideButton.getInstance(project).applyLater()
     }
 }
 
