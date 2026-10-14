@@ -122,6 +122,8 @@ class AgenstormSettings : PersistentStateComponent<AgenstormSettings.State> {
         var markdownTocFold: String = "auto",
         /** Epic N: right-anchored tool windows move to the left, which empties the right bar and makes the IDE hide it. */
         var hideRightToolWindowBar: Boolean = false,
+        /** Epic Y: the Terminal header's Hide button is hidden, so only ⋯ is left in its corner (decision 110). */
+        var terminalHideHeaderHideButton: Boolean = true,
         /** Epic S: the status bar's status text is hidden, so the bottom-left holds only what Agenstorm puts there. */
         var statusBarHideStatusText: Boolean = true,
         /** Epic T: the worktree strip above the Project tree — a tab per worktree of the repository, "+" makes one, a click swaps the window. */

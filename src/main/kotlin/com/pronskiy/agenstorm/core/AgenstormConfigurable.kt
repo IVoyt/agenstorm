@@ -214,6 +214,16 @@ class AgenstormConfigurable : BoundConfigurable(AgenstormBundle.message("setting
             row {
                 comment(AgenstormBundle.message("settings.toolWindows.hideRightBar.comment"))
             }
+            row {
+                checkBox(AgenstormBundle.message("settings.toolWindows.hideTerminalHideButton"))
+                    .bindSelected(
+                        { AgenstormSettings.getInstance().state.terminalHideHeaderHideButton },
+                        { AgenstormSettings.getInstance().state.terminalHideHeaderHideButton = it },
+                    )
+                    .onApply { AgenstormSettingsListener.fire() }
+                    .applyToComponent { name = "toolWindows.hideTerminalHideButton" }
+                    .comment(AgenstormBundle.message("settings.toolWindows.hideTerminalHideButton.comment"))
+            }
         }
         featureGroup("settings.group.worktrees", "settings.worktrees.enabled", AgenstormSettings.State::worktreesEnabled, onApply = AgenstormSettingsListener::fire) {
             row(AgenstormBundle.message("settings.worktrees.folder")) {

@@ -91,7 +91,7 @@ tool window; only the popup goes.
 
 A switch that is **off** until you ask for it: clear the right tool window bar so the editor
 reaches the window edge. And the status bar's status text, the last message at the bottom left,
-is hidden unless you want it back.
+is hidden unless you want it back, as is the Hide button beside the Terminal header's ⋯.
 
 ### Names typed in the project tree
 
@@ -133,6 +133,7 @@ Free and open source, MIT: https://github.com/pronskiy/agenstorm
 | [Names typed in the project tree](#project-tree) | on | Project tree |
 | [Shorter New Scratch File popup](#scratch-files) | on | Scratch files |
 | [Hide the right tool window bar](#tool-windows) | **off** | Tool windows |
+| [Only ⋯ in the Terminal header](#tool-windows) | on | Tool windows |
 | [Hide the status text](#status-bar) | on | Status bar |
 
 `SPEC.md` is the plan and the task list; `CHANGELOG.md` records what each version shipped.
@@ -352,6 +353,12 @@ and the IDE hides a bar with nothing on it, so the editor reaches the window edg
 - Switching it off moves back exactly the windows Agenstorm moved. One you already had on the left
   stays there, one you re-docked yourself is left where you put it, and uninstalling the plugin puts
   them back too.
+
+**Show only ⋯ in the Terminal header.** On by default, in the same group.
+
+The Terminal's top-right corner keeps its ⋯ menu and loses the Hide button beside it. <kbd>⇧</kbd><kbd>⎋</kbd>
+and the Terminal's icon on the bar still hide the window. Other tool windows keep their Hide button, and
+switching it off brings the Terminal's back without a restart.
 
 ## Status bar
 

@@ -81,6 +81,8 @@
         <!-- toolwindows: right-anchored tool windows move to the left, which empties the right bar; the IDE hides an
              empty bar by itself. MovedToolWindows is a light @Service (no XML registration needed). -->
         <postStartupActivity implementation="com.pronskiy.agenstorm.toolwindows.RightBarStartupActivity"/>
+        <!-- toolwindows: the Terminal header keeps only ⋯; its Hide button is found by class name (Y1.3, decision 110). -->
+        <postStartupActivity implementation="com.pronskiy.agenstorm.toolwindows.TerminalHideButtonStartupActivity"/>
 
         <!-- statusbar: the status text is hidden; the platform can only swap it for the navigation bar (Epic S). -->
         <postStartupActivity implementation="com.pronskiy.agenstorm.statusbar.StatusTextStartupActivity"/>
@@ -119,6 +121,7 @@
         <listener class="com.pronskiy.agenstorm.notifications.NotificationAutoDismissListener" topic="com.intellij.notification.Notifications"/>
         <!-- toolwindows: the windows Agenstorm moved off the right side go back before the plugin's classes do. -->
         <listener class="com.pronskiy.agenstorm.toolwindows.RightBarUnloadListener" topic="com.intellij.ide.plugins.DynamicPluginListener"/>
+        <listener class="com.pronskiy.agenstorm.toolwindows.TerminalHideButtonUnloadListener" topic="com.intellij.ide.plugins.DynamicPluginListener"/>
         <!-- statusbar: the status text comes back before the plugin's classes go. -->
         <listener class="com.pronskiy.agenstorm.statusbar.StatusTextUnloadListener" topic="com.intellij.ide.plugins.DynamicPluginListener"/>
         <!-- projectview: New File and New Directory name the element in an editable row on the tree; the
