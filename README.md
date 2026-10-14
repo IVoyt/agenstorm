@@ -616,6 +616,8 @@ Good to know:
   view options and grouping by status are borrowed from it.
 - A session in a terminal of the classic engine, or in another terminal app, is listed but has nothing to
   bring up.
+- A reply that takes less than two seconds is not told and gets no dot: the sidebar reads Claude's files
+  every two seconds, so a session busy for less than that never looks busy.
 
 ## Opening files from the terminal
 
