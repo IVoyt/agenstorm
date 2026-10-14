@@ -91,7 +91,8 @@ tool window; only the popup goes.
 
 A switch that is **off** until you ask for it: clear the right tool window bar so the editor
 reaches the window edge. And the status bar's status text, the last message at the bottom left,
-is hidden unless you want it back, as is the Hide button beside the Terminal header's ⋯.
+is hidden unless you want it back, as is the Hide button beside the Terminal header's ⋯. The main
+menu folds Navigate, Code, Refactor, Run, Tools and Git into one **More** menu.
 
 ### Names typed in the project tree
 
@@ -132,6 +133,7 @@ Free and open source, MIT: https://github.com/pronskiy/agenstorm
 | [Self-hiding notifications](#notifications) | on | Notifications |
 | [Names typed in the project tree](#project-tree) | on | Project tree |
 | [Shorter New Scratch File popup](#scratch-files) | on | Scratch files |
+| [One More menu in the main menu](#main-menu) | on | Main menu |
 | [Hide the right tool window bar](#tool-windows) | **off** | Tool windows |
 | [Only ⋯ in the Terminal header](#tool-windows) | on | Tool windows |
 | [Hide the status text](#status-bar) | on | Status bar |
@@ -338,6 +340,20 @@ manager behaves.
 - Copy File… (F5) is untouched and keeps its target-directory browser. ⌘C / ⌘V in the tree are untouched too.
 - Switching it off gives New File, New Directory and Shift+F6 straight back, without a restart, and takes
   Duplicate out of the menu.
+
+## Main menu
+
+**Put Navigate, Code, Refactor, Run, Tools and Git under one More menu.** On by default, under
+Settings → Tools → Agenstorm → Main menu.
+
+The main menu reads File, Edit, View, **More**, Window, Help, and More opens Navigate, Code, Refactor,
+Run, Tools and Git as submenus. Git is named after the project's version control, as it is on the bar.
+
+- Menus other plugins add to the top level stay there, and so does Build where an IDE shows it.
+- The menus themselves are untouched: shortcuts, Find Action, and items other plugins add to Tools or
+  Git keep working.
+- Switching it off puts every menu back where it was, without a restart, and so does uninstalling the
+  plugin.
 
 ## Tool windows
 

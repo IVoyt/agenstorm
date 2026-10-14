@@ -27,6 +27,7 @@ import com.intellij.ui.dsl.builder.rows
 import com.intellij.ui.layout.selected
 import com.pronskiy.agenstorm.commit.CommitSettingsPanel
 import com.pronskiy.agenstorm.frame.FrameTitleRefresher
+import com.pronskiy.agenstorm.mainmenu.MainMenuFolder
 import com.pronskiy.agenstorm.notifications.AutoDismissPolicy
 import com.pronskiy.agenstorm.projectview.ProjectViewActionInstaller
 import com.pronskiy.agenstorm.scratch.ScratchActionInstaller
@@ -210,6 +211,11 @@ class AgenstormConfigurable : BoundConfigurable(AgenstormBundle.message("setting
             }
         }
 
+        featureGroup("settings.group.mainMenu", "settings.mainMenu.more", AgenstormSettings.State::mainMenuMoreEnabled, onApply = MainMenuFolder::sync) {
+            row {
+                comment(AgenstormBundle.message("settings.mainMenu.more.comment"))
+            }
+        }
         featureGroup("settings.group.toolWindows", "settings.toolWindows.hideRightBar", AgenstormSettings.State::hideRightToolWindowBar, onApply = AgenstormSettingsListener::fire) {
             row {
                 comment(AgenstormBundle.message("settings.toolWindows.hideRightBar.comment"))

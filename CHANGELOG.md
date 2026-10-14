@@ -9,6 +9,7 @@
 - Agents sidebar: a notification when a Claude Code session needs your input or finishes while its tab is not on screen — a system notification while the IDE is behind another app, a balloon otherwise, one per round however many sessions it names; a click brings up the session's tab. The blue dot follows the same rule.
 - Agents sidebar: *View Options* in its title bar — *Active Sessions* or *All Sessions*, and *Group By* *Project* or *Status* (*Needs input*, *Finished*, *Running*, *Idle*, *Past*), the same in every window.
 - Project tabs: an orange dot on a project's tab while an agent in that project waits for your input, with the sessions named in its tooltip.
+- Main menu: Navigate, Code, Refactor, Run, Tools and Git move under one More menu, so the bar reads File, Edit, View, More, Window, Help. On by default, under Main menu; off puts every menu back without a restart.
 - Terminal: its header shows only ⋯ in the top-right corner; the Hide button beside it is gone (⇧⎋ and the bar icon still hide the window). On by default, under Tool windows.
 
 ### Changed
