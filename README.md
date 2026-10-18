@@ -18,11 +18,15 @@ An optional switch also hides the editor/preview layout buttons. Soft-wrapped Ma
 the right margin's line, however wide the window. The headings sit in the top-right corner as a contents card
 that stays put while you scroll, and a click jumps to one.
 
+![The caret moves through a Markdown file: headings, bold text, links and task boxes show their markup only where the caret is, and a table cell is edited in place](https://raw.githubusercontent.com/pronskiy/agenstorm/main/docs/gifs/markdown-live.gif)
+
 ### Clickable file locations
 
 `src/Foo.php:42:7` becomes a link in Markdown, in comments of every language, and in PHP strings.
 It is the format compilers, test runners and agents already emit, so nothing has to change on the
 other side. **Copy Location Link** puts such a token on the clipboard, ready to paste back to an agent.
+
+![Clicking Cart::total() in a Markdown file opens src/Cart.php on line 42](https://raw.githubusercontent.com/pronskiy/agenstorm/main/docs/gifs/clickable-locations.gif)
 
 ### `open` in the IDE terminal
 
@@ -30,17 +34,23 @@ other side. **Copy Location Link** puts such a token on the clipboard, ready to 
 instead of handing it to the OS. Anything the IDE does not claim (flags, URLs, missing paths,
 binaries) reaches the real `open` untouched.
 
+![open ./php-internals-graph/ in the IDE terminal opens that folder as a project, in its own tab](https://raw.githubusercontent.com/pronskiy/agenstorm/main/docs/gifs/open-in-terminal.gif)
+
 ### The IDE as your terminal's editor
 
 Press <kbd>Ctrl</kbd>+<kbd>G</kbd> in Claude Code and the prompt opens in this project's window
 instead of vim. Close the tab and the edited text goes back to it. `git commit` and everything else
 that reaches for `$EDITOR` behaves the same way.
 
+![Ctrl+G in Claude Code opens the plan in an editor tab; closing the tab sends the edited plan back](https://raw.githubusercontent.com/pronskiy/agenstorm/main/docs/gifs/ctrl-g-editor.gif)
+
 ### AI commit messages
 
 A subject and body streamed into the commit message field from the Anthropic API, any
 OpenAI-compatible endpoint (OpenAI, Ollama, LM Studio, OpenRouter, Groq), or the local `claude` CLI,
 which needs no API key. No SDK and no bundled jars: just the platform's own HTTP client.
+
+![The lightning button fills the commit message field with a generated message](https://raw.githubusercontent.com/pronskiy/agenstorm/main/docs/gifs/ai-commit-message.gif)
 
 ### Project tabs, the way a browser does them
 
@@ -49,6 +59,8 @@ so the window loses a row of chrome. The tabs take all the room the toolbar can 
 before they turn into icons. A project you have not touched for two hours is offloaded: closed with
 everything saved, its tab kept as a dotted bookmark that loads it again on click. The Git branch moves
 down to the status bar, and window titles name the project rather than whichever file is open.
+
+![Two projects offloaded from their tab menus, then loaded again with a click on their dotted tabs](https://raw.githubusercontent.com/pronskiy/agenstorm/main/docs/gifs/project-tabs.gif)
 
 ### Worktrees, one tab each
 
@@ -62,6 +74,8 @@ started in a terminal. Worktrees nested in the repository stay out of the projec
 With tmux and one setting, terminals running an agent or a dev server follow the switch to the next
 worktree, and can be kept running when a window closes or the IDE quits.
 
+![Picking a worktree from the list above the Project tree opens it in its own project tab](https://raw.githubusercontent.com/pronskiy/agenstorm/main/docs/gifs/worktrees.gif)
+
 ### One list of your agents
 
 An Agents sidebar lists the Claude Code sessions of every open project: the running ones, with what
@@ -71,10 +85,14 @@ its own project's window, or resumes a past one in a new tab. It tells you when 
 input or finishes while you are looking elsewhere, and puts a dot on the project tab where an agent
 waits. Off by default.
 
+![The Agents sidebar grouped by status: a session finishes and turns blue, and a click brings up its project's window and terminal tab](https://raw.githubusercontent.com/pronskiy/agenstorm/main/docs/gifs/agents-sidebar.gif)
+
 ### A terminal that fills the window
 
 One key fills the editor's area with the terminal, and the same key gives the editor back. Other
 tool windows keep their place.
+
+![⌘⌥M switches the editor's area between the terminal and the editor](https://raw.githubusercontent.com/pronskiy/agenstorm/main/docs/gifs/terminal-fills-window.gif)
 
 ### Terminal output that folds
 
@@ -98,6 +116,8 @@ menu folds Navigate, Code, Refactor, Run, Tools and Git into one **More** menu.
 
 New File, New Directory, Rename and Duplicate open an editable row in the tree instead of a dialog.
 Type, press Enter, done. `src/Http/Client.php` creates the folders on the way.
+
+![New File and Rename open an editable row in the Project tree instead of a dialog](https://raw.githubusercontent.com/pronskiy/agenstorm/main/docs/gifs/tree-inline-names.gif)
 
 ### A shorter New Scratch File popup
 
@@ -169,8 +189,6 @@ Settings are stored in `agenstorm.xml` in the IDE config directory, so they roam
 ## Markdown live markup
 
 Obsidian-style editing: the syntax hides itself until the caret reaches the line.
-
-![The caret moves through a Markdown file: headings, bold text, links and task boxes show their markup only where the caret is, and a table cell is edited in place](docs/gifs/markdown-live.gif)
 
 - **Inline markers.** `**bold**`, `*italic*`, `~~strike~~`, `` `code` `` show only their text. Markers
   return for the element the caret touches and under a selection, so what you see is what you copy.
@@ -247,8 +265,6 @@ card trusts the right margin to tell where the text ends: with soft wrap off, a 
 Bare file locations become links wherever they appear: Markdown link destinations, comments in any
 language, and PHP string literals.
 
-![Clicking Cart::total() in a Markdown file opens src/Cart.php on line 42](docs/gifs/clickable-locations.gif)
-
 ```
 path/to/file.ext:LINE
 path/to/file.ext:LINE:COLUMN
@@ -282,8 +298,6 @@ No default shortcut. `Ctrl+Alt+Shift+L` is free in the default keymaps (Settings
 
 The lightning button above the commit message field streams a subject and body for the included
 changes. Click again to stop.
-
-![The lightning button fills the commit message field with a generated message](docs/gifs/ai-commit-message.gif)
 
 - Undo removes the whole generation in one step.
 - Text already in the field is treated as a hint: a multi-line draft is improved rather than
@@ -323,8 +337,6 @@ Project tree.
 New File, New Directory and Rename put an editable row in the project tree and let you type the name
 there. Enter commits, Escape cancels, clicking elsewhere accepts what you typed, the way a file
 manager behaves.
-
-![New File and Rename open an editable row in the Project tree instead of a dialog](docs/gifs/tree-inline-names.gif)
 
 - The row appears directly below the row you clicked, indented to where the file or folder will land.
 - `src/Http/Client.php` creates the two folders on the way, the same as the dialog does.
@@ -436,8 +448,6 @@ how long ago it was offloaded, click it to load the project again in the same pl
 a middle click, forgets it (the project is still under "+"). Right-click a loaded tab for **Offload Project**;
 right-click a bookmark for Load, Forget and Copy Path.
 
-![Two projects offloaded from their tab menus, then loaded again with a click on their dotted tabs](docs/gifs/project-tabs.gif)
-
 Two things never get offloaded: the project whose window is in front, and any project with a terminal command
 or a run/debug process still running. The first time a project is offloaded, a balloon says which one and why.
 
@@ -467,8 +477,6 @@ Tab". `Ctrl+Alt+Shift+]` and `Ctrl+Alt+Shift+[` are a natural pair.
 
 With a Git repository open, a row of tabs sits above the Project tree: one per worktree of the
 repository, the main checkout first and named after its branch, the rest oldest first.
-
-![Picking a worktree from the list above the Project tree opens it in its own project tab](docs/gifs/worktrees.gif)
 
 - Click a tab to swap the window to that worktree: it opens where the window is, and the worktree you
   left closes. If a command or a run configuration is still running there (an agent in the terminal,
@@ -595,8 +603,6 @@ Off by default: **Show the Agents sidebar** under Settings | Tools | Agenstorm |
 project window. Its notifications and the project-tab dot are on once the sidebar is, each with its own
 checkbox in the same group.
 
-![The Agents sidebar grouped by status: a session finishes and turns blue, and a click brings up its project's window and terminal tab](docs/gifs/agents-sidebar.gif)
-
 It lists, under each open project, the Claude Code sessions running in it — in any Terminal tab, plain or
 tmux-backed, in any window — each one's mark right under the project's folder icon, and below them the
 project's last ten sessions (**Past sessions per project**,
@@ -671,8 +677,6 @@ open src/A.php src/B.php    # opens both
 open .                      # opens or focuses the directory
 ```
 
-![open ./php-internals-graph/ in the IDE terminal opens that folder as a project, in its own tab](docs/gifs/open-in-terminal.gif)
-
 - Inside IDE terminals only; every other shell on the machine is unaffected.
 - Flags, URLs, missing paths and binaries reach the real `open` untouched.
 - A file belonging to another open project lands in that project's window.
@@ -687,8 +691,6 @@ and whether the IDE claims file types it treats as binary.
 
 `$EDITOR` and `$VISUAL` in an IDE terminal point at this IDE, so anything reaching for an editor opens
 a tab here and waits.
-
-![Ctrl+G in Claude Code opens the plan in an editor tab; closing the tab sends the edited plan back](docs/gifs/ctrl-g-editor.gif)
 
 - Claude Code's <kbd>Ctrl</kbd>+<kbd>G</kbd>, `git commit` and `crontab -e` all behave the same way.
 - The command stays blocked until the last tab for that file is closed, with what you typed on disk
@@ -708,8 +710,6 @@ Settings → Tools → Agenstorm → Terminal editor.
 
 <kbd>⌘</kbd><kbd>⌥</kbd><kbd>M</kbd> on macOS, <kbd>⌥</kbd><kbd>⇧</kbd><kbd>F12</kbd> elsewhere, or the
 button in the terminal's title bar.
-
-![⌘⌥M switches the editor's area between the terminal and the editor](docs/gifs/terminal-fills-window.gif)
 
 - The terminal fills the editor's area; the same key gives the editor back and returns the caret.
 - The editor tabs stay visible above it; clicking one opens that file and gives the editor back.
