@@ -10,7 +10,7 @@
 
 ### Fixed
 
-- Project tabs: the "+" popup shows each recent project on one line with its icon and branch, from the first time it opens.
+- Project tabs: the "+" popup shows each recent project on one line with its icon and branch, from the first time it opens. The projects scroll in a list of their own, so Open… and Get from Version Control… stay in view.
 - Maximized terminal: with no file open, the strip above it stays empty instead of showing the empty editor's content drawn over itself.
 - Markdown: rendered tables no longer blink, and the page no longer jumps, while you type above them.
 

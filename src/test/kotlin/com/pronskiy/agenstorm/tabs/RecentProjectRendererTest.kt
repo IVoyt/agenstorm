@@ -7,9 +7,6 @@ import com.intellij.util.ui.UIUtil
 import com.pronskiy.agenstorm.tabs.ui.RecentProjectRenderer
 import java.awt.Component
 import java.awt.Container
-import javax.swing.DefaultListCellRenderer
-import javax.swing.JList
-import javax.swing.ListCellRenderer
 
 /** The "+" popup's recent projects: one line of icon, name and the branch as it is known now (Roman, 2026-10-19). */
 class RecentProjectRendererTest : BasePlatformTestCase() {
@@ -30,14 +27,6 @@ class RecentProjectRendererTest : BasePlatformTestCase() {
     fun testWithNoBranchThereIsOnlyTheName() {
         val action = ReopenProjectAction("/fake/agenstorm", "agenstorm", "agenstorm")
         assertEquals(listOf("agenstorm"), labelsOf(RecentProjectRenderer.pane(action, null, isSelected = false)).map { it.text })
-    }
-
-    fun testAnythingButARecentProjectIsLeftToThePopupsOwnRenderer() {
-        val base = DefaultListCellRenderer()
-        @Suppress("UNCHECKED_CAST")
-        val renderer = RecentProjectRenderer(base as ListCellRenderer<Any?>) { error("not a project") }
-        val component = renderer.getListCellRendererComponent(JList<Any?>(), "Open…", 0, false, false)
-        assertSame(base, component)
     }
 
     fun testBranchesAreReadFromTheRecentProjectActions() {

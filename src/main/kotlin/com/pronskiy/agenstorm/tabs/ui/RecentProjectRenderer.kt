@@ -5,7 +5,7 @@ import com.intellij.ide.ReopenProjectAction
 import com.intellij.openapi.ui.popup.util.PopupUtil
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.panels.HorizontalLayout
-import com.intellij.ui.popup.PopupFactoryImpl
+import com.intellij.ui.popup.PopupFactoryImpl.ActionItem
 import com.intellij.ui.popup.list.SelectablePanel
 import com.intellij.util.IconUtil
 import com.intellij.util.ui.JBUI
@@ -18,21 +18,17 @@ import javax.swing.ListCellRenderer
 import javax.swing.SwingConstants
 
 /**
- * The recent projects of the "+" popup, one line each: the project's icon, its name and the branch it is on. Every
- * other item is left to [base], the popup's own renderer.
+ * The recent projects of the "+" popup ([AddProjectPopup]), one line each: the project's icon, its name and the branch
+ * it is on.
  *
  * The branch is asked of [branchOf] on every paint rather than taken from the action. `ReopenProjectAction` keeps the
  * branch it was made with, and Git looks a project's branch up in the background the first time anyone asks, so the
  * actions of a first popup had none and only the next popup showed them (Roman, 2026-10-19).
  */
-class RecentProjectRenderer(
-    private val base: ListCellRenderer<Any?>,
-    private val branchOf: (String) -> String?,
-) : ListCellRenderer<Any?> {
+class RecentProjectRenderer(private val branchOf: (String) -> String?) : ListCellRenderer<ActionItem> {
 
-    override fun getListCellRendererComponent(list: JList<out Any?>?, value: Any?, index: Int, isSelected: Boolean, cellHasFocus: Boolean): Component {
-        val action = (value as? PopupFactoryImpl.ActionItem)?.action as? ReopenProjectAction
-            ?: return base.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus)
+    override fun getListCellRendererComponent(list: JList<out ActionItem>?, value: ActionItem, index: Int, isSelected: Boolean, cellHasFocus: Boolean): Component {
+        val action = value.action as ReopenProjectAction
         return pane(action, branchOf(action.projectPath) ?: action.branchName, isSelected)
     }
 
