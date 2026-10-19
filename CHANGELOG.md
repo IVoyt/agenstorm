@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Maximized terminal: the widescreen tool window layout it needs is on only while the terminal is maximized. Your own layout comes back with the editor, instead of staying widescreen from the first use until the feature was switched off.
+
 ### Fixed
 
 - Markdown: rendered tables no longer blink, and the page no longer jumps, while you type above them.

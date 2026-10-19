@@ -725,9 +725,10 @@ button in the terminal's title bar.
 ### Two things it changes, and gives back
 
 **Widescreen layout.** Confining the terminal to the editor's column is what the IDE's Widescreen
-tool window layout does, so Agenstorm turns it on the first time you *use* the toggle (never on
-install), says so once in a balloon, and puts your layout back when the feature is switched off. A
-widescreen layout you chose yourself is never claimed.
+tool window layout does, so Agenstorm turns it on while the toggle has the terminal maximized (never on
+install), says so once in a balloon, and puts your layout back when the editor gets its area back — once
+no other window still has its terminal maximized — and when the feature is switched off. A widescreen
+layout you chose yourself is never claimed.
 
 **⌘⌥M is Extract Method** in the macOS keymaps. While this feature is on, Maximize Terminal wins that
 keystroke. Nothing in your keymap is changed to arrange it, a balloon says so the first time, and

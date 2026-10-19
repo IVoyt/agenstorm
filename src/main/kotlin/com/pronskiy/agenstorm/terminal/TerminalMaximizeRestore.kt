@@ -72,7 +72,10 @@ object TerminalMaximizeRestore {
     /** Workspace key: the same height, for the next tool window shown at the terminal's side while sizes are shared. */
     const val SHARED_HEIGHT_KEY = "agenstorm.terminal.sharedHeightShare"
 
-    /** EDT. The toggle's way out of a maximized terminal: back to its own height, kept, then hidden. */
+    /**
+     * EDT. The toggle's way out of a maximized terminal: back to its own height, kept, then hidden, and the tool
+     * window layout maximizing switched on given back.
+     */
     fun unmaximizeAndHide(project: Project, terminal: ToolWindow) {
         val manager = ToolWindowManager.getInstance(project)
         if (manager.isMaximized(terminal)) {
@@ -81,6 +84,8 @@ object TerminalMaximizeRestore {
             keepOwnHeight(project, terminal, maximizedHeight)
         }
         terminal.hide(null)
+        // Measured above while the pane still had the shape the terminal was maximized in; the share carries over.
+        TerminalMaximizeLayout.restoreAfterUnmaximize()
     }
 
     /** EDT, before the project's layout is saved. */

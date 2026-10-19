@@ -5,6 +5,7 @@ import com.intellij.notification.NotificationAction
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.project.ProjectManager
 import com.pronskiy.agenstorm.core.AgenstormBundle
 import com.pronskiy.agenstorm.core.AgenstormConfigurable
 import com.pronskiy.agenstorm.core.AgenstormNotifications
@@ -19,25 +20,43 @@ import com.pronskiy.agenstorm.core.AgenstormSettings
  * tool windows sit above it; growing the terminal takes their height with it. With it on, the terminal lives
  * inside the editor's column and they keep their full height.
  *
- * So the setting is switched on the first time the toggle is actually used, and remembered as ours, following
- * `tabs/git/BranchWidgetPlacement.syncNavBar`: a setting the user turned on themselves is never claimed, and
- * switching the feature off only undoes what Agenstorm did. It happens on first *use*, not merely because the
- * feature is enabled — installing the plugin must not rearrange anybody's IDE.
+ * So the setting is switched on when the toggle maximizes the terminal, and remembered as ours, following
+ * `tabs/git/BranchWidgetPlacement.syncNavBar`: a setting the user turned on themselves is never claimed, and only
+ * what Agenstorm did is ever undone — when the terminal is un-maximized again and no other window still has its
+ * terminal maximized (the setting is one for every window), and when the feature is switched off. A user asked for
+ * the first: the layout used to stay widescreen from the first use on, and getting the old one back meant a trip
+ * to the settings every time. It happens on *use*, not merely because the feature is enabled — installing the
+ * plugin must not rearrange anybody's IDE.
  */
 object TerminalMaximizeLayout {
 
     enum class WideScreenChange { NONE, ENABLED, RESTORED }
 
-    /** Called before maximizing: gives the editor its own column, once, and says so. */
+    /** Called before maximizing: gives the editor its own column, and says so the first time. */
     fun ensureEditorAreaOnly(project: Project) {
         val settings = AgenstormSettings.getInstance()
         val change = syncWideScreen(featureOn = true, state = settings.state, ui = UISettings.getInstance())
         if (change == WideScreenChange.ENABLED) showNotice(project)
     }
 
+    /**
+     * EDT, called once the terminal was un-maximized: gives the layout back if we were the ones who changed it,
+     * unless a terminal is still maximized somewhere, which needs it as much as this one did.
+     */
+    fun restoreAfterUnmaximize(anyStillMaximized: () -> Boolean = ::anyTerminalMaximized) {
+        val state = AgenstormSettings.getInstance().state
+        if (!state.terminalMaximizeWideScreenByAgenstorm || anyStillMaximized()) return
+        syncWideScreen(featureOn = false, state = state, ui = UISettings.getInstance())
+    }
+
     /** Called when the feature is switched off: gives the layout back if we were the ones who changed it. */
     fun restore() {
         syncWideScreen(featureOn = false, state = AgenstormSettings.getInstance().state, ui = UISettings.getInstance())
+    }
+
+    private fun anyTerminalMaximized(): Boolean = ProjectManager.getInstance().openProjects.any { project ->
+        val terminal = TerminalMaximizeToggleAction.terminalOf(project) ?: return@any false
+        TerminalMaximizeToggleAction.stateOf(project, terminal).isTerminalMaximized
     }
 
     /**

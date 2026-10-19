@@ -7,7 +7,7 @@ import com.pronskiy.agenstorm.terminal.TerminalMaximizeLayout.WideScreenChange
 
 /**
  * Step J2.1: the terminal fills the editor's column rather than the window, which needs the widescreen tool
- * window layout. Agenstorm turns it on once and only ever turns back what it turned on.
+ * window layout. Agenstorm turns it on while the terminal is maximized and only ever turns back what it turned on.
  */
 class TerminalMaximizeLayoutTest : BasePlatformTestCase() {
 
@@ -84,6 +84,38 @@ class TerminalMaximizeLayoutTest : BasePlatformTestCase() {
         assertEquals(WideScreenChange.NONE, change)
         assertFalse(ui.wideScreenSupport)
         assertFalse("the claim is dropped either way", state.terminalMaximizeWideScreenByAgenstorm)
+    }
+
+    /** Asked for by a user: the layout comes back when the terminal does, not only when the feature goes off. */
+    fun testUnmaximizingPutsBackTheLayoutWeTurnedOn() {
+        val state = AgenstormSettings.getInstance().state
+        val ui = ui(wideScreen = false)
+        TerminalMaximizeLayout.syncWideScreen(featureOn = true, state = state, ui = ui)
+
+        TerminalMaximizeLayout.restoreAfterUnmaximize(anyStillMaximized = { false })
+
+        assertFalse(ui.wideScreenSupport)
+        assertFalse(state.terminalMaximizeWideScreenByAgenstorm)
+    }
+
+    fun testUnmaximizingLeavesTheUsersOwnLayoutAlone() {
+        val ui = ui(wideScreen = true)
+
+        TerminalMaximizeLayout.restoreAfterUnmaximize(anyStillMaximized = { false })
+
+        assertTrue(ui.wideScreenSupport)
+    }
+
+    /** One setting for every window: another window's maximized terminal still needs it. */
+    fun testATerminalStillMaximizedElsewhereKeepsTheLayout() {
+        val state = AgenstormSettings.getInstance().state
+        val ui = ui(wideScreen = false)
+        TerminalMaximizeLayout.syncWideScreen(featureOn = true, state = state, ui = ui)
+
+        TerminalMaximizeLayout.restoreAfterUnmaximize(anyStillMaximized = { true })
+
+        assertTrue(ui.wideScreenSupport)
+        assertTrue("still ours, for the last window to give back", state.terminalMaximizeWideScreenByAgenstorm)
     }
 
     fun testTurningItOnIsIdempotent() {
