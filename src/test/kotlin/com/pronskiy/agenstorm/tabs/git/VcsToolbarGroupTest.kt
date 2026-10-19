@@ -29,6 +29,18 @@ class VcsToolbarGroupTest : BasePlatformTestCase() {
         assertTrue("children: $ids", "main.toolbar.git.Branches" in ids)
     }
 
+    /**
+     * Reported by a user who put the branch back in the toolbar: Share Project On…, Create Git Repository and Show
+     * Project History stood there as three buttons. `Vcs.ToolbarWidget.CreateRepository` is not one of the stock
+     * group's children but a plain group the branch widget opens for a project without a repository.
+     */
+    fun testListsOnlyWhatTheStockGroupHolds() {
+        val group = ActionManager.getInstance().getAction(VcsToolbarGroup.ID) as VcsToolbarGroup
+        val ids = group.getChildren(null).map { ActionManager.getInstance().getId(it) }
+        assertFalse("children: $ids", "Vcs.ToolbarWidget.CreateRepository" in ids)
+        assertTrue("children: $ids", ids.all { it in listOf("main.toolbar.git.Branches", "main.toolbar.git.MergeRebase") })
+    }
+
     fun testHiddenWhileTheBranchLivesInTheStatusBarAndVisibleOtherwise() {
         val group = VcsToolbarGroup()
         val event = TestActionEvent.createTestEvent(group, SimpleDataContext.getProjectContext(project))
