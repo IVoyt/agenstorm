@@ -4,13 +4,12 @@ import com.intellij.icons.AllIcons
 import com.intellij.ide.ReopenProjectAction
 import com.intellij.openapi.ui.popup.util.PopupUtil
 import com.intellij.ui.components.JBLabel
-import com.intellij.ui.components.panels.VerticalLayout
+import com.intellij.ui.components.panels.HorizontalLayout
 import com.intellij.ui.popup.PopupFactoryImpl
 import com.intellij.ui.popup.list.SelectablePanel
 import com.intellij.util.IconUtil
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
-import java.awt.BorderLayout
 import java.awt.Component
 import javax.swing.JComponent
 import javax.swing.JList
@@ -19,8 +18,8 @@ import javax.swing.ListCellRenderer
 import javax.swing.SwingConstants
 
 /**
- * The recent projects of the "+" popup, drawn as the stock project widget draws them: the project's icon, its name,
- * its path and the branch it is on. Every other item is left to [base], the popup's own renderer.
+ * The recent projects of the "+" popup, one line each: the project's icon, its name and the branch it is on. Every
+ * other item is left to [base], the popup's own renderer.
  *
  * The branch is asked of [branchOf] on every paint rather than taken from the action. `ReopenProjectAction` keeps the
  * branch it was made with, and Git looks a project's branch up in the background the first time anyone asks, so the
@@ -38,26 +37,20 @@ class RecentProjectRenderer(
     }
 
     companion object {
-        /** One project: the icon at the top left, then its name, its path and, when known, its branch. */
+        /** One project on one line: icon and name, then the branch when it is known. */
         fun pane(action: ReopenProjectAction, branch: String?, isSelected: Boolean): JComponent {
-            val lines = JPanel(VerticalLayout(JBUI.scale(2))).apply { isOpaque = false }
-            lines.add(JBLabel(action.projectNameToDisplay).apply {
+            val name = action.projectNameToDisplay
+            val row = JPanel(HorizontalLayout(JBUI.scale(GAP))).apply { isOpaque = false }
+            // The platform's own icon for a recent project: deferred, so the list is repainted once it is made. A first
+            // lookup through the tab's way returns one that stays blank in a popup row.
+            val projectIcon = IconUtil.downscaleIconToSize(action.projectIcon, JBUI.scale(ICON_SIZE), JBUI.scale(ICON_SIZE))
+            row.add(JBLabel(name, projectIcon, SwingConstants.LEFT).apply {
+                iconTextGap = JBUI.scale(6)
                 foreground = if (isSelected) UIUtil.getListSelectionForeground(true) else UIUtil.getListForeground()
             })
-            action.projectPathToDisplay?.let { lines.add(detail(it)) }
-            branch?.let { lines.add(detail(it).apply { icon = IconUtil.colorize(AllIcons.Vcs.Branch, UIUtil.getLabelInfoForeground()) }) }
-            val icon = JBLabel(action.projectIcon).apply {
-                verticalAlignment = SwingConstants.TOP
-                border = JBUI.Borders.emptyRight(8)
-            }
-            val row = JPanel(BorderLayout()).apply {
-                isOpaque = false
-                border = JBUI.Borders.empty(6, 0)
-                add(icon, BorderLayout.WEST)
-                add(lines, BorderLayout.CENTER)
-            }
+            branch?.let { row.add(detail(it).apply { icon = IconUtil.colorize(AllIcons.Vcs.Branch, UIUtil.getLabelInfoForeground()) }) }
             return SelectablePanel.wrap(row, JBUI.CurrentTheme.Popup.BACKGROUND).apply {
-                PopupUtil.configListRendererFlexibleHeight(this)
+                PopupUtil.configListRendererFixedHeight(this)
                 if (isSelected) selectionColor = UIUtil.getListSelectionBackground(true)
             }
         }
@@ -66,5 +59,11 @@ class RecentProjectRenderer(
             font = JBUI.Fonts.smallFont()
             foreground = UIUtil.getLabelInfoForeground()
         }
+
+        /** Between the name and the branch. */
+        private const val GAP = 10
+
+        /** The size of the popup's other icons, rather than the recent-projects list's 20. */
+        private const val ICON_SIZE = 16
     }
 }

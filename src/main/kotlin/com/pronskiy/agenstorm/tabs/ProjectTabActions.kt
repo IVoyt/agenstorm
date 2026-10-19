@@ -39,9 +39,9 @@ import javax.swing.ListCellRenderer
  * Steps E1.4/P2.7. What the tabs do: left click switches to the project's window (mirroring the window bounds
  * first when both windows are ordinary, so the other project appears "in place"), middle click or × closes it
  * (after switching to a neighbour when it is the frame's own project, so focus does not fall to the desktop),
- * "+" opens the recent-projects popup — icons, paths and branches, as the stock widget draws them — with the stock
- * widget's actions, right click offers Close / Close Others / Offload Project / Copy Path. On an offloaded bookmark
- * a click loads the project, × or middle click forgets it, and the menu offers Load / Forget / Copy Path.
+ * "+" opens the recent-projects popup — one line per project, with its icon and branch — with the stock widget's
+ * actions, right click offers Close / Close Others / Offload Project / Copy Path. On an offloaded bookmark a click
+ * loads the project, × or middle click forgets it, and the menu offers Load / Forget / Copy Path.
  * Everything here runs on the EDT (mouse events); the close itself is posted with `invokeLater` because it tears
  * down the very frame whose toolbar dispatched the click.
  */
@@ -119,9 +119,9 @@ object ProjectTabActions {
     }
 
     /**
-     * The recent projects drawn with their icons, paths and branches by [RecentProjectRenderer], like the stock
-     * widget's popup. Git looks branches up in the background the first time they are asked for: [wire] asks as the
-     * mouse reaches "+", and a branch that arrives while the popup is open is put in at once.
+     * The recent projects drawn one line each, with their icons and branches, by [RecentProjectRenderer]. Git looks
+     * branches up in the background the first time they are asked for: [wire] asks as the mouse reaches "+", and a
+     * branch that arrives while the popup is open is put in at once.
      */
     fun showAddPopup(anchor: Component, owner: Project?) {
         val factory = JBPopupFactory.getInstance()
@@ -141,7 +141,7 @@ object ProjectTabActions {
                         val fresh = branchesOf(recentProjectActions())
                         if (fresh == branches || popup.isDisposed) return@invokeLater
                         branches = fresh
-                        (popup as? ListPopupImpl)?.list?.let(::forgetRowHeights)
+                        (popup as? ListPopupImpl)?.list?.let(::forgetCellSizes)
                         popup.pack(true, true)
                     }, ModalityState.any())
                 }
@@ -157,8 +157,8 @@ object ProjectTabActions {
     fun branchesOf(actions: List<AnAction>): Map<String, String?> =
         actions.filterIsInstance<ReopenProjectAction>().associate { it.projectPath to it.branchName }
 
-    /** A branch adds a line to its row, and the list's UI caches row heights until a fixed height comes and goes. */
-    private fun forgetRowHeights(list: JList<*>) {
+    /** A branch widens its row, and the list's UI caches cell sizes until a fixed height comes and goes. */
+    private fun forgetCellSizes(list: JList<*>) {
         val fixed = list.fixedCellHeight
         list.fixedCellHeight = 1
         list.fixedCellHeight = fixed
