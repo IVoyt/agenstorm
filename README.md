@@ -58,7 +58,8 @@ Open projects become tabs inside the main toolbar, in the slot the project widge
 so the window loses a row of chrome. The tabs take all the room the toolbar can spare and shrink
 before they turn into icons. A project you have not touched for two hours is offloaded: closed with
 everything saved, its tab kept as a dotted bookmark that loads it again on click. The Git branch moves
-down to the status bar, and window titles name the project rather than whichever file is open.
+down to the status bar (or, if you prefer, stays on top before the tabs), and window titles name the
+project rather than whichever file is open.
 
 ![Two projects offloaded from their tab menus, then loaded again with a click on their dotted tabs](https://raw.githubusercontent.com/pronskiy/agenstorm/main/docs/gifs/project-tabs.gif)
 
@@ -458,13 +459,18 @@ or a run/debug process still running. The first time a project is offloaded, a b
 ### The Git branch
 
 With tabs on, the VCS widget next to them is hidden and the branch shows bottom-left in the status
-bar, where the navigation bar was. Click it for the branches popup. The navigation bar comes back
-when the option is turned off, provided Agenstorm was the one that hid it.
+bar, where the navigation bar was. Click it for the branches popup.
+
+Prefer it on top, as the IDE has it without Agenstorm? Choose **Git branch: At the top, before the
+tabs**: the stock branch widget, dropdown and all, comes first in the toolbar, then the tabs, and it
+stays put however many tabs are open. It shows the current window's branch. The navigation bar comes
+back too, provided Agenstorm was the one that hid it.
 
 ### Options and shortcuts
 
-The **Project tabs** group holds the switch plus four options, all on by default: branch in the status
-bar, mirror window position/size when switching, project icons, and max tab width (220 px). Offloading has its
+The **Project tabs** group holds the switch plus four options: where the Git branch goes (the status
+bar by default, or the top), mirror window position/size when switching (on), project icons (on), and max
+tab width (220 px). Offloading has its
 own switch (on), the idle time before a project is offloaded (120 minutes, from 5 to 1440) and how many projects
 may stay loaded (8, from 1 to 50).
 

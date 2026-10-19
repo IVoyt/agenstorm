@@ -103,12 +103,23 @@ class AgenstormConfigurable : BoundConfigurable(AgenstormBundle.message("setting
                     .applyToComponent { name = "tabs.mirrorBounds" }
                     .comment(AgenstormBundle.message("settings.tabs.mirrorBounds.comment"))
             }
-            row {
-                checkBox(AgenstormBundle.message("settings.tabs.branchInStatusBar"))
-                    .bindSelected({ AgenstormSettings.getInstance().state.branchInStatusBar }, { AgenstormSettings.getInstance().state.branchInStatusBar = it })
-                    .onApply { AgenstormSettingsListener.fire() }
-                    .applyToComponent { name = "tabs.branchInStatusBar" }
-                    .comment(AgenstormBundle.message("settings.tabs.branchInStatusBar.comment"))
+            // Each radio bound on its own: `ButtonsGroup.bind` is an inline function compiled for JVM 25. Each writes the
+            // setting outright, so once the first has applied a switch the other reads as unchanged: one notice a switch.
+            buttonsGroup(AgenstormBundle.message("settings.tabs.branch")) {
+                row {
+                    radioButton(AgenstormBundle.message("settings.tabs.branch.statusBar"))
+                        .bindSelected({ AgenstormSettings.getInstance().state.branchInStatusBar }, { AgenstormSettings.getInstance().state.branchInStatusBar = it })
+                        .onApply { AgenstormSettingsListener.fire() }
+                        .applyToComponent { name = "tabs.branch.statusBar" }
+                        .comment(AgenstormBundle.message("settings.tabs.branch.statusBar.comment"))
+                }
+                row {
+                    radioButton(AgenstormBundle.message("settings.tabs.branch.top"))
+                        .bindSelected({ !AgenstormSettings.getInstance().state.branchInStatusBar }, { AgenstormSettings.getInstance().state.branchInStatusBar = !it })
+                        .onApply { AgenstormSettingsListener.fire() }
+                        .applyToComponent { name = "tabs.branch.top" }
+                        .comment(AgenstormBundle.message("settings.tabs.branch.top.comment"))
+                }
             }
             row {
                 checkBox(AgenstormBundle.message("settings.tabs.showIcons"))

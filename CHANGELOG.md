@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Project tabs: the Git branch can go back on top, before the tabs, as the stock IDE has it (Settings → Tools → Agenstorm → Project tabs → Git branch: At the top, before the tabs). The status bar stays the default; the navigation bar comes back with it.
+
 ### Changed
 
 - Maximized terminal: the widescreen tool window layout it needs is on only while the terminal is maximized. Your own layout comes back with the editor, instead of staying widescreen from the first use until the feature was switched off.
@@ -13,7 +17,7 @@
 - Project tabs: the "+" popup shows each recent project on one line with its icon and branch, from the first time it opens. The projects scroll in a list of their own, so Open… and Get from Version Control… stay in view.
 - Maximized terminal: with no file open, the strip above it stays empty instead of showing the empty editor's content drawn over itself.
 - Markdown: rendered tables no longer blink, and the page no longer jumps, while you type above them.
-- Git branch in the toolbar: with "Show the Git branch in the status bar" off, the toolbar no longer gains Share Project On…, Create Git Repository and Show Project History buttons.
+- Git branch on top: the toolbar no longer gains Share Project On…, Create Git Repository and Show Project History buttons next to it.
 
 ## [1.14.0] - 2026-10-14
 

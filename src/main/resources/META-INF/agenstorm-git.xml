@@ -23,6 +23,12 @@
         <!-- ...and out of the Project pane too, as .idea is; Project Files still lists them. -->
         <treeStructureProvider implementation="com.pronskiy.agenstorm.worktrees.ui.WorktreeFolderFilter"/>
     </extensions>
+    <applicationListeners>
+        <!-- tabs: the branch at the top, before the project tabs (decision 111), placed before the first frame and
+             put back before the plugin goes. -->
+        <listener class="com.pronskiy.agenstorm.tabs.git.BranchToolbarListener" topic="com.intellij.ide.AppLifecycleListener"/>
+        <listener class="com.pronskiy.agenstorm.tabs.git.BranchToolbarListener" topic="com.intellij.ide.plugins.DynamicPluginListener"/>
+    </applicationListeners>
     <actions>
         <!-- Hides the stock VCS group (branch, merge/rebase, create repository) while the branch lives in the status bar. -->
         <group id="MainToolbarVCSGroup" class="com.pronskiy.agenstorm.tabs.git.VcsToolbarGroup" overrides="true"/>

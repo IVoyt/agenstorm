@@ -48,6 +48,8 @@ object BranchWidgetPlacement {
     fun applyNow(project: Project) {
         val on = BranchStatusBarWidgetFactory.isFeatureOn()
         syncNavBar(on, AgenstormSettings.getInstance().state, UISettings.getInstance())
+        // The toolbar is every window's; syncing it again from each project is a no-op.
+        BranchToolbarPlacement.sync()
         // Creates the widget when it became available, removes it when it did not; the widget places itself.
         project.getService(StatusBarWidgetsManager::class.java).updateWidget(BranchStatusBarWidgetFactory::class.java)
     }

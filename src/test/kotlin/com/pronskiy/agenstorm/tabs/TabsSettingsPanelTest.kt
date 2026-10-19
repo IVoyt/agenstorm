@@ -2,6 +2,7 @@ package com.pronskiy.agenstorm.tabs
 
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.ui.components.JBCheckBox
+import com.intellij.ui.components.JBRadioButton
 import com.intellij.ui.components.JBTextField
 import com.intellij.util.ui.UIUtil
 import com.pronskiy.agenstorm.core.AgenstormConfigurable
@@ -32,13 +33,14 @@ class TabsSettingsPanelTest : BasePlatformTestCase() {
     }
 
     fun testFieldsShowTheDefaultsAndApplyWritesTheState() {
-        assertTrue(named<JBCheckBox>("tabs.branchInStatusBar").isSelected)
+        assertTrue("the status bar is the default", named<JBRadioButton>("tabs.branch.statusBar").isSelected)
+        assertFalse(named<JBRadioButton>("tabs.branch.top").isSelected)
         assertTrue(named<JBCheckBox>("tabs.mirrorBounds").isSelected)
         assertTrue(named<JBCheckBox>("tabs.showIcons").isSelected)
         assertEquals("220", named<JBTextField>("tabs.maxWidth").text)
         assertFalse(configurable.isModified)
 
-        named<JBCheckBox>("tabs.branchInStatusBar").isSelected = false
+        named<JBRadioButton>("tabs.branch.top").isSelected = true
         named<JBCheckBox>("tabs.mirrorBounds").isSelected = false
         named<JBCheckBox>("tabs.showIcons").isSelected = false
         named<JBTextField>("tabs.maxWidth").text = "160"
@@ -79,9 +81,14 @@ class TabsSettingsPanelTest : BasePlatformTestCase() {
         configurable.apply()
         assertEquals(0, fired)
 
-        named<JBCheckBox>("tabs.branchInStatusBar").isSelected = false
+        named<JBRadioButton>("tabs.branch.top").isSelected = true
         configurable.apply()
         assertEquals(1, fired)
+
+        named<JBRadioButton>("tabs.branch.statusBar").isSelected = true
+        configurable.apply()
+        assertEquals("and once on the way back", 2, fired)
+        assertTrue(AgenstormSettings.getInstance().state.branchInStatusBar)
     }
 
     /** Step P2.8: the offload rows — switch, idle minutes, cap — show their defaults and are written on apply. */
