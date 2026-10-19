@@ -4,6 +4,7 @@ import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.editor.Inlay
 import com.intellij.openapi.editor.event.VisibleAreaEvent
 import com.intellij.openapi.util.Disposer
+import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.util.ui.UIUtil
@@ -72,6 +73,27 @@ class TableInlaysTest : BasePlatformTestCase() {
         assertEquals(2, after.renderer.model.rows.size)
         assertEquals(3, after.renderer.geometry().rows.size)
         assertTrue(after.renderer.calcHeightInPixels(after) > heightBefore)
+    }
+
+    /**
+     * Reported by a user: tables blinked, and the page height jumped, while text above them was typed. The caret
+     * pass that follows each keystroke matched the tables of the last sync by their old offsets, found none, and
+     * took the rendered table away until the next sync, 200 ms after the typing stopped.
+     */
+    fun testTypingAboveATableKeepsItsInlayUntilTheNextSync() {
+        val controller = configured()
+        val before = controller.tableInlays().single()
+        myFixture.editor.caretModel.moveToOffset(5)
+        myFixture.type(" text")
+        UIUtil.dispatchAllInvocationEvents()
+        val during = controller.tableInlays().single()
+        assertSame("the same inlay, not one taken away and made again", before, during)
+        assertEquals(11, during.offset)
+        val shift = " text".length
+        assertEquals("the cells follow the edit before the next sync", TextRange(13 + shift, 14 + shift), during.renderer.model.header.cells[1].range)
+        PsiDocumentManager.getInstance(project).commitAllDocuments()
+        controller.syncNow()
+        assertSame(before, controller.tableInlays().single())
     }
 
     fun testNoInlayWhenTheOptionIsOff() {

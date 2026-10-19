@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Markdown: rendered tables no longer blink, and the page no longer jumps, while you type above them.
+
 ## [1.14.0] - 2026-10-14
 
 ### Added

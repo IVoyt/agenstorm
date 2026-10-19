@@ -39,6 +39,13 @@ data class TableRow(val range: TextRange, val cells: List<TableCell>)
 data class TableModel(val span: TextRange, val header: TableRow, val rows: List<TableRow>, val alignments: List<ColumnAlignment>) {
     val columnCount: Int get() = alignments.size
 
+    /** The same table [delta] characters further on: an edit above it moved it without changing it. */
+    fun shiftedBy(delta: Int): TableModel {
+        if (delta == 0) return this
+        fun TableRow.shifted() = TableRow(range.shiftRight(delta), cells.map { it.copy(range = it.range.shiftRight(delta)) })
+        return copy(span = span.shiftRight(delta), header = header.shifted(), rows = rows.map { it.shifted() })
+    }
+
     /** The same text in the same styles and alignments, wherever the two tables sit in their documents. */
     fun sameContent(other: TableModel): Boolean =
         alignments == other.alignments && header.cells.size == other.header.cells.size && rows.size == other.rows.size &&

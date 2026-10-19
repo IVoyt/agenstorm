@@ -19,6 +19,7 @@ import java.awt.Graphics2D
 import java.awt.Point
 import java.awt.Rectangle
 import java.awt.geom.Rectangle2D
+import java.util.IdentityHashMap
 
 /**
  * Step Q2.3. The rendered table itself: a block inlay's renderer that lays the [model] out for the width the
@@ -107,10 +108,13 @@ class TableInlayRenderer(private val editor: EditorEx, model: TableModel, privat
  */
 class TableInlays(private val editor: EditorEx) : Disposable {
 
-    private class Shown(val inlay: Inlay<TableInlayRenderer>, var model: TableModel)
+    private class Shown(val region: FoldRegion, val inlay: Inlay<TableInlayRenderer>)
+
+    /** A table region as the last sync saw it: the table, and where the region was at the time. */
+    private class Synced(val model: TableModel, val start: Int, val end: Int)
 
     private var shown = ArrayList<Shown>()
-    private var tables: List<TableModel> = emptyList()
+    private var synced: Map<FoldRegion, Synced> = emptyMap()
     private var updateScheduled = false
 
     init {
@@ -123,40 +127,56 @@ class TableInlays(private val editor: EditorEx) : Disposable {
         if (width > 0 && width != event.oldRectangle?.width) scheduleUpdate()
     }
 
-    /** EDT. [tables] is the collector's latest list; [regions] the controller's regions. */
+    /** EDT. [tables] is the collector's latest list and [regions] the controller's regions, both of the same text. */
     fun sync(tables: List<TableModel>, regions: List<FoldRegion>) {
-        this.tables = tables
+        val matched = IdentityHashMap<FoldRegion, Synced>()
+        for (region in regions) {
+            if (!region.isValid || region.getUserData(LiveMarkupController.KIND) != MarkupKind.TABLE) continue
+            val model = tables.firstOrNull { it.span.endOffset == region.endOffset && it.span.startOffset >= region.startOffset } ?: continue
+            matched[region] = Synced(model, region.startOffset, region.endOffset)
+        }
+        synced = matched
         refresh(regions)
     }
 
-    /** EDT. One inlay for every collapsed table region, none for a revealed one, against the last synced tables. */
+    /**
+     * EDT. One inlay for every collapsed table region, none for a revealed one. Between two syncs the text moves on
+     * — the caret pass after every keystroke lands here — so a table is found by its region, which follows the
+     * text, and not by the offsets of the last sync: matching those took every table below the caret away while
+     * text above it was typed, until the next sync put it back (the blinking a user reported). A region that only
+     * moved carries its table along; one whose own text changed keeps what it shows until the next sync.
+     */
     fun refresh(regions: List<FoldRegion>) {
         if (editor.isDisposed) return
-        val wanted = LinkedHashMap<Int, Pair<FoldRegion, TableModel>>()
+        // A null model: the table's text changed since the sync, and only the next one knows what it is now.
+        val wanted = IdentityHashMap<FoldRegion, TableModel?>()
         for (region in regions) {
-            if (!region.isValid || region.isExpanded || region.getUserData(LiveMarkupController.KIND) != MarkupKind.TABLE) continue
-            val model = tables.firstOrNull { it.span.endOffset == region.endOffset && it.span.startOffset >= region.startOffset } ?: continue
-            wanted[region.startOffset] = region to model
+            if (!region.isValid || region.isExpanded) continue
+            val table = synced[region] ?: continue
+            val moved = region.startOffset - table.start
+            wanted[region] = if (region.endOffset - table.end == moved) table.model.shiftedBy(moved) else null
         }
         val kept = ArrayList<Shown>()
         for (entry in shown) {
-            val match = wanted.remove(entry.inlay.offset)?.takeIf { entry.inlay.isValid }
-            if (match == null) {
+            // An inlay left behind by text typed at its own offset is made again where the region starts.
+            val inPlace = entry.inlay.isValid && entry.inlay.offset == entry.region.startOffset
+            if (!inPlace || !wanted.containsKey(entry.region)) {
                 Disposer.dispose(entry.inlay)
                 continue
             }
-            entry.inlay.renderer.update(match.second)
-            if (entry.model !== match.second) {
-                entry.model = match.second
-                entry.inlay.update()
+            wanted.remove(entry.region)?.let { model ->
+                val resized = !entry.inlay.renderer.model.sameContent(model)
+                entry.inlay.renderer.update(model)
+                if (resized) entry.inlay.update()
             }
             kept += entry
         }
-        for ((region, model) in wanted.values) {
+        for ((region, model) in wanted) {
+            model ?: continue
             val renderer = TableInlayRenderer(editor, model, indentOf(model))
             val properties = InlayProperties().showAbove(false).relatesToPrecedingText(true).showWhenFolded(true)
             val inlay = editor.inlayModel.addBlockElement(region.startOffset, properties, renderer) ?: continue
-            kept += Shown(inlay, model)
+            kept += Shown(region, inlay)
         }
         shown = kept
     }
