@@ -10,6 +10,7 @@
 
 ### Fixed
 
+- Maximized terminal: with no file open, the strip above it stays empty instead of showing the empty editor's content drawn over itself.
 - Markdown: rendered tables no longer blink, and the page no longer jumps, while you type above them.
 
 ## [1.14.0] - 2026-10-14
