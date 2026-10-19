@@ -67,6 +67,8 @@ class ProjectTabsPanel(private val model: ProjectTabsModel = ProjectTabsModel.ge
     var onClose: (ProjectTab) -> Unit = {}
     /** The "+" button; receives the button so a popup can anchor to it. */
     var onAdd: (Component) -> Unit = {}
+    /** The mouse reached the "+" button: a click is likely, so whatever its popup shows can be looked up now. */
+    var onAddHover: () -> Unit = {}
     /** Right click on a tab: the tab, the component and the click point, for a popup. */
     var onContextMenu: (ProjectTab, Component, Point) -> Unit = { _, _, _ -> }
     /** A tab was dragged to a new position: the tab and its new index in the strip. */
@@ -129,6 +131,8 @@ class ProjectTabsPanel(private val model: ProjectTabsModel = ProjectTabsModel.ge
             override fun mouseClicked(e: MouseEvent) {
                 if (e.button == MouseEvent.BUTTON1) onAdd(this@apply)
             }
+
+            override fun mouseEntered(e: MouseEvent) = onAddHover()
         })
     }
 

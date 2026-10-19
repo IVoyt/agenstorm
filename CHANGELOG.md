@@ -10,6 +10,7 @@
 
 ### Fixed
 
+- Project tabs: the "+" popup shows each recent project's icon, path and branch from the first time it opens, as the stock project widget draws them.
 - Maximized terminal: with no file open, the strip above it stays empty instead of showing the empty editor's content drawn over itself.
 - Markdown: rendered tables no longer blink, and the page no longer jumps, while you type above them.
 

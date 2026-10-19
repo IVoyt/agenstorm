@@ -2,12 +2,17 @@ package com.pronskiy.agenstorm.tabs
 
 import com.intellij.ide.DataManager
 import com.intellij.ide.RecentProjectListActionProvider
+import com.intellij.ide.RecentProjectsManager
+import com.intellij.ide.ReopenProjectAction
 import com.intellij.ide.impl.ProjectUtil
 import com.intellij.openapi.actionSystem.ActionGroup
 import com.intellij.openapi.actionSystem.ActionManager
+import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.project.DumbAwareAction
@@ -17,22 +22,26 @@ import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.openapi.wm.WindowManager
 import com.intellij.openapi.wm.impl.ProjectFrameHelper
 import com.intellij.ui.awt.RelativePoint
+import com.intellij.ui.popup.list.ListPopupImpl
 import com.pronskiy.agenstorm.core.AgenstormBundle
 import com.pronskiy.agenstorm.core.AgenstormSettings
 import com.pronskiy.agenstorm.tabs.offload.ProjectOffloadService
 import com.pronskiy.agenstorm.tabs.ui.ProjectTabsPanel
+import com.pronskiy.agenstorm.tabs.ui.RecentProjectRenderer
 import java.awt.Component
 import java.awt.Point
 import java.awt.datatransfer.StringSelection
 import javax.swing.JFrame
+import javax.swing.JList
+import javax.swing.ListCellRenderer
 
 /**
  * Steps E1.4/P2.7. What the tabs do: left click switches to the project's window (mirroring the window bounds
  * first when both windows are ordinary, so the other project appears "in place"), middle click or × closes it
  * (after switching to a neighbour when it is the frame's own project, so focus does not fall to the desktop),
- * "+" opens the recent-projects popup with the stock widget's actions, right click offers Close / Close Others /
- * Offload Project / Copy Path. On an offloaded bookmark a click loads the project, × or middle click forgets it,
- * and the menu offers Load / Forget / Copy Path.
+ * "+" opens the recent-projects popup — icons, paths and branches, as the stock widget draws them — with the stock
+ * widget's actions, right click offers Close / Close Others / Offload Project / Copy Path. On an offloaded bookmark
+ * a click loads the project, × or middle click forgets it, and the menu offers Load / Forget / Copy Path.
  * Everything here runs on the EDT (mouse events); the close itself is posted with `invokeLater` because it tears
  * down the very frame whose toolbar dispatched the click.
  */
@@ -54,7 +63,8 @@ object ProjectTabActions {
                 is ProjectTab.Offloaded -> model.forget(tab.key)
             }
         }
-        panel.onAdd = { anchor -> showAddPopup(anchor) }
+        panel.onAdd = { anchor -> showAddPopup(anchor, panel.ownerProject) }
+        panel.onAddHover = { recentProjectActions() }
         panel.onContextMenu = { tab, component, point -> showContextMenu(tab, component, point, owner = panel.ownerProject, tabs = model.tabs()) }
         panel.onReorder = { tab, index -> model.moveTab(tab.key, index) }
     }
@@ -108,10 +118,52 @@ object ProjectTabActions {
         }, { target.isDisposed })
     }
 
-    fun showAddPopup(anchor: Component) {
-        JBPopupFactory.getInstance()
-            .createActionGroupPopup(null, addPopupGroup(), DataManager.getInstance().getDataContext(anchor), JBPopupFactory.ActionSelectionAid.SPEEDSEARCH, true)
-            .showUnderneathOf(anchor)
+    /**
+     * The recent projects drawn with their icons, paths and branches by [RecentProjectRenderer], like the stock
+     * widget's popup. Git looks branches up in the background the first time they are asked for: [wire] asks as the
+     * mouse reaches "+", and a branch that arrives while the popup is open is put in at once.
+     */
+    fun showAddPopup(anchor: Component, owner: Project?) {
+        val factory = JBPopupFactory.getInstance()
+        val context = DataManager.getInstance().getDataContext(anchor)
+        val project = owner ?: CommonDataKeys.PROJECT.getData(context) ?: ProjectManager.getInstance().defaultProject
+        val step = factory.createActionsStep(addPopupGroup(), context, ADD_POPUP_PLACE, false, true, null, anchor, false, 0, false)
+        var branches = branchesOf(recentProjectActions())
+        val popup = factory.createListPopup(project, step) { base ->
+            @Suppress("UNCHECKED_CAST")
+            RecentProjectRenderer(base as ListCellRenderer<Any?>) { path -> branches[path] }
+        }
+        ApplicationManager.getApplication().messageBus.connect(popup).subscribe(
+            RecentProjectsManager.RECENT_PROJECTS_CHANGE_TOPIC,
+            object : RecentProjectsManager.RecentProjectsChange {
+                override fun change() {
+                    ApplicationManager.getApplication().invokeLater({
+                        val fresh = branchesOf(recentProjectActions())
+                        if (fresh == branches || popup.isDisposed) return@invokeLater
+                        branches = fresh
+                        (popup as? ListPopupImpl)?.list?.let(::forgetRowHeights)
+                        popup.pack(true, true)
+                    }, ModalityState.any())
+                }
+            },
+        )
+        popup.showUnderneathOf(anchor)
+    }
+
+    /** The recent projects as the platform lists them now; asking is also what makes Git look their branches up. */
+    fun recentProjectActions(): List<AnAction> =
+        RecentProjectListActionProvider.getInstance().getActions(addClearListItem = false, useGroups = false)
+
+    fun branchesOf(actions: List<AnAction>): Map<String, String?> =
+        actions.filterIsInstance<ReopenProjectAction>().associate { it.projectPath to it.branchName }
+
+    /** A branch adds a line to its row, and the list's UI caches row heights until a fixed height comes and goes. */
+    private fun forgetRowHeights(list: JList<*>) {
+        val fixed = list.fixedCellHeight
+        list.fixedCellHeight = 1
+        list.fixedCellHeight = fixed
+        list.revalidate()
+        list.repaint()
     }
 
     fun showContextMenu(tab: ProjectTab, component: Component, point: Point, owner: Project?, tabs: List<ProjectTab>) {
@@ -140,7 +192,7 @@ object ProjectTabActions {
      */
     fun addPopupGroup(): DefaultActionGroup {
         val group = DefaultActionGroup()
-        group.addAll(RecentProjectListActionProvider.getInstance().getActions(addClearListItem = false, useGroups = false))
+        group.addAll(recentProjectActions())
         (ActionManager.getInstance().getAction(STOCK_ACTIONS_GROUP) as? ActionGroup)?.let {
             group.addSeparator()
             group.add(it)
@@ -193,4 +245,7 @@ object ProjectTabActions {
 
     /** The group the stock project widget appends to its popup (New Project, Open, Clone…). */
     const val STOCK_ACTIONS_GROUP = "ProjectWidget.Actions"
+
+    /** The action place of the "+" popup. */
+    const val ADD_POPUP_PLACE = "Agenstorm.ProjectTabs.Add"
 }
