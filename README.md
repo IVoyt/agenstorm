@@ -409,8 +409,9 @@ titles, is no longer shown. Progress bars stay where they are, and switching the
 the text back.
 
 The IDE has no switch for this text on its own. Its **Status Text** item (right-click the status bar)
-only swaps the text for the navigation bar, and with project tabs on, Agenstorm hides the navigation
-bar to make room for the Git branch. So with both on, the bottom left holds just the branch.
+only swaps the text for the navigation bar, and with project tabs on and the Git branch in the status bar
+(the default), Agenstorm hides the navigation bar to make room for the branch. So with both on, the bottom
+left holds just the branch.
 
 ---
 
@@ -719,7 +720,8 @@ Settings → Tools → Agenstorm → Terminal editor.
 button in the terminal's title bar.
 
 - The terminal fills the editor's area; the same key gives the editor back and returns the caret.
-- The editor tabs stay visible above it; clicking one opens that file and gives the editor back.
+- The editor tabs stay visible above it; clicking one opens that file and gives the editor back. With no
+  file open, that strip stays empty.
 - Opening a file gives the editor back too: a path clicked in the terminal, `open`, Navigate or Recent
   Files, a click in the Project view. A file an agent opens in the background while you type in the
   terminal leaves it where it is.
