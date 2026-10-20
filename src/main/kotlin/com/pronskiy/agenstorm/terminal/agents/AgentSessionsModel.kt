@@ -52,7 +52,9 @@ class AgentSessionsModel(private val scope: CoroutineScope) : Disposable {
 
     private val groupsFlow = MutableStateFlow<List<ProjectGroup>>(emptyList())
     private val passes = Mutex()
-    private val attention = AttentionTracker()
+
+    /** Tests use one that does not wait for a stop to settle. */
+    internal var attention = AttentionTracker()
 
     /** Step X6.2. Each read's events about sessions the IDE can bring up, in projects still open; told by [notifier]. */
     private val newsFlow = MutableSharedFlow<List<AttentionEvent>>(extraBufferCapacity = 16, onBufferOverflow = BufferOverflow.DROP_OLDEST)

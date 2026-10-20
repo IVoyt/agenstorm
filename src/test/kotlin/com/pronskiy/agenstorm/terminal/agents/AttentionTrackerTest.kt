@@ -7,7 +7,8 @@ import org.junit.Test
 /** Step X6.1 (X2.4 before it): what a session did while its tab was not on screen — a dot for finishing, an event for each change worth telling. */
 class AttentionTrackerTest {
 
-    private val tracker = AttentionTracker()
+    /** No settling: the rules below are about which changes count, not how long a stop must last. */
+    private val tracker = AttentionTracker(settleMs = 0)
 
     private fun session(id: String, status: String?, waitingFor: String? = null) =
         LiveSession(pid = 1, sessionId = id, cwd = "/w/app", name = null, status = status, tmuxSession = null, updatedAt = null, entrypoint = null, waitingFor = waitingFor)
@@ -152,5 +153,72 @@ class AttentionTrackerTest {
         tracker.seen("a")
 
         assertEquals(emptySet<String>(), tracker.current())
+    }
+
+    @Test
+    fun aMomentaryIdleBetweenTwoBusyReadsIsNoNews() {
+        val clock = Clock()
+        val settling = AttentionTracker(settleMs = 3_000, clock = clock::now)
+        fun read(status: String) = settling.update(listOf(session("a", status) to "/w/app"), emptySet()).also { clock.ms += 2_000 }
+
+        read("busy")
+        val gap = read("idle")
+        val again = read("busy")
+
+        assertEquals("the last subagent ended, Claude goes on with its answer", emptySet<String>(), gap.finished + again.finished)
+        assertEquals(emptyList<AttentionEvent>(), gap.events + again.events)
+    }
+
+    @Test
+    fun aStopCountsOnceItHasLastedTheSettleTime() {
+        val clock = Clock()
+        val settling = AttentionTracker(settleMs = 3_000, clock = clock::now)
+        fun read(status: String) = settling.update(listOf(session("a", status) to "/w/app"), emptySet()).also { clock.ms += 2_000 }
+
+        read("busy")
+        val stopped = read("idle")
+        val twoSecondsLater = read("idle")
+        val fourSecondsLater = read("idle")
+        val later = read("idle")
+
+        assertEquals(emptyList<AttentionEvent>(), stopped.events + twoSecondsLater.events)
+        assertEquals(emptySet<String>(), twoSecondsLater.finished)
+        assertEquals(listOf("a" to Kind.FINISHED), kinds(fourSecondsLater))
+        assertEquals(setOf("a"), fourSecondsLater.finished)
+        assertEquals("told once, the dot stays", emptyList<AttentionEvent>(), later.events)
+        assertEquals(setOf("a"), later.finished)
+    }
+
+    @Test
+    fun aStopSeenOnScreenClickedOrWaitingBeforeItSettlesIsNoNews() {
+        val clock = Clock()
+        val settling = AttentionTracker(settleMs = 3_000, clock = clock::now)
+        fun read(status: String, onScreen: Set<String> = emptySet()) =
+            settling.update(listOf(session("a", status) to "/w/app"), onScreen).also { clock.ms += 2_000 }
+        fun quiet(vararg reads: Attention) = reads.flatMap { it.events.filter { event -> event.kind == Kind.FINISHED } } + reads.flatMap { it.finished }
+
+        read("busy")
+        read("idle")
+        val onScreen = quiet(read("idle", onScreen = setOf("a")), read("idle"), read("idle"))
+
+        read("busy")
+        read("idle")
+        settling.seen("a")
+        val clicked = quiet(read("idle"), read("idle"))
+
+        read("busy")
+        read("idle")
+        val waiting = read("waiting")
+        val answered = quiet(waiting, read("idle"), read("idle"))
+
+        assertEquals("its tab came on screen", emptyList<Any>(), onScreen)
+        assertEquals("clicked", emptyList<Any>(), clicked)
+        assertEquals("it asked for input instead", emptyList<Any>(), answered)
+        assertEquals(listOf("a" to Kind.NEEDS_INPUT), kinds(waiting))
+    }
+
+    private class Clock {
+        var ms = 0L
+        fun now() = ms
     }
 }

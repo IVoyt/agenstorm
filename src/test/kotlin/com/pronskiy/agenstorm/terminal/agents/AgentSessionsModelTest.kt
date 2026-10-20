@@ -16,6 +16,7 @@ class AgentSessionsModelTest : BasePlatformTestCase() {
 
     private lateinit var home: Path
     private lateinit var notifier: AgentNotifier
+    private lateinit var attention: AttentionTracker
     private val told = java.util.concurrent.CopyOnWriteArrayList<String>()
     private val model get() = AgentSessionsModel.getInstance()
     private val self = ProcessHandle.current()
@@ -27,6 +28,8 @@ class AgentSessionsModelTest : BasePlatformTestCase() {
         model.claudeHome = { home }
         notifier = model.notifier
         model.notifier = recording()
+        attention = model.attention
+        model.attention = AttentionTracker(settleMs = 0)
     }
 
     /** A notifier that records titles instead of showing anything; [failFirst] makes its first notice throw. */
@@ -56,6 +59,7 @@ class AgentSessionsModelTest : BasePlatformTestCase() {
             ProjectAttention.getInstance().clear()
             model.claudeHome = ClaudeLiveSessions::home
             model.notifier = notifier
+            model.attention = attention
             @OptIn(kotlin.io.path.ExperimentalPathApi::class)
             home.deleteRecursively()
         } finally {
